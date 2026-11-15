@@ -1,0 +1,397 @@
+
+/* =========================================
+   THE WAY HOME — BOOKING MODAL
+   ========================================= */
+
+/* Dark background behind the pop-up */
+
+.booking-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 24, 58, 0.68);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* Main booking window */
+
+.booking-modal {
+  position: relative;
+  width: 100%;
+  max-width: 540px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  background: linear-gradient(
+    135deg,
+    #ffffff 0%,
+    #f2faff 65%,
+    #e1f3ff 100%
+  );
+  border: 2px solid #b5dff7;
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: 0 15px 50px rgba(0, 35, 80, 0.35);
+  color: #082e68;
+}
+
+/* Close button */
+
+.booking-close {
+  position: absolute;
+  top: 12px;
+  right: 15px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: #e0f2ff;
+  color: #07366f;
+  font-size: 27px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.booking-close:hover {
+  background: #c4e7ff;
+}
+
+/* Headings */
+
+.booking-modal h2 {
+  font-family: Georgia, serif;
+  font-size: 38px;
+  text-align: center;
+  margin: 0 0 5px;
+  color: #082e68;
+}
+
+.booking-subtitle {
+  text-align: center;
+  font-size: 16px;
+  margin: 0 0 16px;
+}
+
+/* Preview notice */
+
+.booking-notice {
+  background: #fff6df;
+  border: 1px solid #efd99e;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.4;
+  margin-bottom: 18px;
+}
+
+/* =========================================
+   CALENDAR
+   ========================================= */
+
+.booking-calendar {
+  background: white;
+  border: 1px solid #b6dbf2;
+  border-radius: 14px;
+  overflow: hidden;
+  padding-bottom: 12px;
+}
+
+.booking-month-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(
+    90deg,
+    #d9f0ff,
+    #edf9ff,
+    #d9f0ff
+  );
+  padding: 10px 14px;
+}
+
+.booking-month-header strong {
+  font-size: 18px;
+  color: #082e68;
+}
+
+.booking-month-header button {
+  background: transparent;
+  border: none;
+  color: #07366f;
+  font-size: 22px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+.booking-month-header button:hover {
+  color: #0085cf;
+}
+
+/* Calendar grid */
+
+.booking-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  padding: 12px;
+  text-align: center;
+}
+
+.booking-calendar-grid > strong {
+  font-size: 12px;
+  padding: 8px 0;
+  color: #082e68;
+}
+
+/* Individual dates */
+
+.booking-date {
+  min-height: 43px;
+  border: 1px solid #c4e9d0;
+  border-radius: 6px;
+  background: #d5f7dc;
+  color: #164527;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.booking-date:hover:not(:disabled) {
+  background: #a6e9ba;
+}
+
+/* Selected check-in/check-out dates */
+
+.booking-date.selected {
+  background: #07569c;
+  color: white;
+  border-color: #07569c;
+}
+
+/* Dates between check-in and check-out */
+
+.booking-date.in-range {
+  background: #b6dfff;
+  border-color: #8cc8f2;
+  color: #07366f;
+}
+
+/* Past dates */
+
+.booking-date.past {
+  background: #eeeeee;
+  color: #aaaaaa;
+  border-color: #e5e5e5;
+  cursor: not-allowed;
+}
+
+/* =========================================
+   SELECTED DATES
+   ========================================= */
+
+.booking-selection {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.booking-selection > div {
+  background: white;
+  border: 1px solid #c1dff2;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.booking-selection label {
+  font-size: 12px;
+  color: #52739a;
+  font-weight: 700;
+}
+
+.booking-selection strong {
+  font-size: 15px;
+  color: #082e68;
+}
+
+/* =========================================
+   NUMBER OF GUESTS
+   ========================================= */
+
+.booking-guests {
+  margin-top: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+}
+
+.booking-guests label {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.booking-guests select {
+  padding: 9px 15px;
+  border: 1px solid #a9d2ed;
+  border-radius: 8px;
+  background: white;
+  color: #082e68;
+  font-size: 15px;
+  min-width: 130px;
+}
+
+/* =========================================
+   PRICE CALCULATION
+   ========================================= */
+
+.booking-price {
+  margin-top: 20px;
+  padding: 16px;
+  background: white;
+  border: 1px solid #b9def4;
+  border-radius: 12px;
+}
+
+.booking-price p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 7px 0;
+  font-size: 14px;
+}
+
+.booking-price p strong {
+  white-space: nowrap;
+}
+
+/* Total price */
+
+.booking-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid #c8e5f7;
+  margin-top: 13px;
+  padding-top: 14px;
+}
+
+.booking-total span {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.booking-total strong {
+  font-size: 27px;
+  color: #00539b;
+  white-space: nowrap;
+}
+
+/* =========================================
+   REQUEST BOOKING BUTTON
+   ========================================= */
+
+.booking-submit {
+  display: block;
+  width: 100%;
+  margin-top: 18px;
+  padding: 14px 18px;
+  background: linear-gradient(
+    180deg,
+    #1084c8,
+    #00316d
+  );
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.booking-submit:hover:not(:disabled) {
+  background: linear-gradient(
+    180deg,
+    #159be5,
+    #00478e
+  );
+}
+
+.booking-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Disclaimer */
+
+.booking-disclaimer {
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #61758c;
+  margin: 12px 0 0;
+}
+
+/* =========================================
+   MOBILE RESPONSIVE
+   ========================================= */
+
+@media (max-width: 600px) {
+  .booking-overlay {
+    padding: 10px;
+    align-items: flex-start;
+  }
+
+  .booking-modal {
+    max-height: calc(100dvh - 20px);
+    padding: 22px 15px;
+    border-radius: 15px;
+  }
+
+  .booking-modal h2 {
+    font-size: 31px;
+  }
+
+  .booking-subtitle {
+    font-size: 14px;
+  }
+
+  .booking-calendar-grid {
+    gap: 3px;
+    padding: 8px;
+  }
+
+  .booking-date {
+    min-height: 37px;
+    font-size: 13px;
+  }
+
+  .booking-selection {
+    gap: 8px;
+  }
+
+  .booking-selection > div {
+    padding: 10px;
+  }
+
+  .booking-selection strong {
+    font-size: 13px;
+  }
+
+  .booking-total strong {
+    font-size: 23px;
+  }
+
+  .booking-guests {
+    flex-wrap: wrap;
+  }
+}
