@@ -4,11 +4,15 @@ import BookingModal from './components/BookingModal'
 import './App.css'
 
 // Cottage photographs
+
+const base = import.meta.env.BASE_URL
+
 const photos = [
-  '/images/cottage/cottage_slide_01.jpg',
-  '/images/cottage/cottage_slide_02.jpg',
-  '/images/cottage/cottage_slide_04.jpg'
+  `${base}images/cottage/cottage_slide_01.jpg`,
+  `${base}images/cottage/cottage_slide_02.jpg`,
+  `${base}images/cottage/cottage_slide_04.jpg`
 ]
+
 
 // Property location
 const address =
@@ -211,7 +215,9 @@ function App() {
         >
           <div className="hero-photo">
             <img
-              src="/images/homepage/home_01.jpg"
+              
+            src={`${base}images/homepage/home_01.jpg`}
+
               alt="The Way Home guest accommodation entrance"
             />
           </div>

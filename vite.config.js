@@ -1,7 +1,9 @@
+
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-// https://vite.dev/config/
+// Vite configuration for The Way Home
 export default defineConfig({
   plugins: [react()],
+  base: '/TheWayHome-React/',
 })
