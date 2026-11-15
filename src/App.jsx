@@ -3,32 +3,32 @@ import { useState } from 'react'
 import BookingModal from './components/BookingModal'
 import './App.css'
 
-// Cottage photographs
-
+// GitHub Pages compatible image paths
 const base = import.meta.env.BASE_URL
 
 const photos = [
   `${base}images/cottage/cottage_slide_01.jpg`,
   `${base}images/cottage/cottage_slide_02.jpg`,
-  `${base}images/cottage/cottage_slide_04.jpg`
+  `${base}images/cottage/cottage_slide_04.jpg`,
 ]
 
+// Property details
+const address = '1 Ibis Street, Vredenburg, 7380, South Africa'
 
-// Property location
-const address =
-  '1 Ibis Street, Vredenburg, 7380, South Africa'
+const phoneDisplay = '+27 72 375 6637'
+const phoneLink = '+27723756637'
+const whatsappLink = 'https://wa.me/27723756637'
 
 const mapsUrl =
   'https://www.google.com/maps/search/?api=1&query=' +
   encodeURIComponent(address)
 
-// Welcome section features
 const features = [
   ['▰', 'Self-catering cottage'],
   ['◉', 'Wi-Fi'],
   ['▣', 'Off-street parking'],
   ['♜', 'Fully equipped'],
-  ['▤', 'Linen & towels included']
+  ['▤', 'Linen & towels included'],
 ]
 
 // Homepage calendar preview
@@ -43,20 +43,20 @@ function CalendarPreview() {
     1
   )
 
-  const count = new Date(
+  const daysInMonth = new Date(
     first.getFullYear(),
     first.getMonth() + 1,
     0
   ).getDate()
 
-  const blank = (first.getDay() + 6) % 7
+  const blankDays = (first.getDay() + 6) % 7
 
   const cells = [
-    ...Array(blank).fill(null),
+    ...Array(blankDays).fill(null),
     ...Array.from(
-      { length: count },
-      (_, i) => i + 1
-    )
+      { length: daysInMonth },
+      (_, index) => index + 1
+    ),
   ]
 
   return (
@@ -65,8 +65,11 @@ function CalendarPreview() {
         <button
           type="button"
           aria-label="Previous month"
+          disabled={monthOffset === 0}
           onClick={() =>
-            setMonthOffset(x => Math.max(0, x - 1))
+            setMonthOffset(current =>
+              Math.max(0, current - 1)
+            )
           }
         >
           ❮
@@ -75,7 +78,7 @@ function CalendarPreview() {
         <strong>
           {first.toLocaleString('en-ZA', {
             month: 'long',
-            year: 'numeric'
+            year: 'numeric',
           })}
         </strong>
 
@@ -83,7 +86,7 @@ function CalendarPreview() {
           type="button"
           aria-label="Next month"
           onClick={() =>
-            setMonthOffset(x => x + 1)
+            setMonthOffset(current => current + 1)
           }
         >
           ❯
@@ -98,19 +101,17 @@ function CalendarPreview() {
           'Thu',
           'Fri',
           'Sat',
-          'Sun'
+          'Sun',
         ].map(day => (
           <b key={day}>{day}</b>
         ))}
 
         {cells.map((day, index) => (
           <span
-            className={
-              day
-                ? 'calendar-day'
-                : 'calendar-empty'
-            }
             key={index}
+            className={
+              day ? 'calendar-day' : 'calendar-empty'
+            }
           >
             {day}
           </span>
@@ -129,16 +130,17 @@ function CalendarPreview() {
 function App() {
   const [photoIndex, setPhotoIndex] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
-
-  // Controls the booking pop-up
   const [bookingOpen, setBookingOpen] = useState(false)
 
   function changePhoto(direction) {
-    setPhotoIndex(
-      current =>
-        (current + direction + photos.length) %
-        photos.length
+    setPhotoIndex(current =>
+      (current + direction + photos.length) %
+      photos.length
     )
+  }
+
+  function closeMenu() {
+    setMenuOpen(false)
   }
 
   return (
@@ -151,6 +153,7 @@ function App() {
           className="brand"
           href="#home"
           aria-label="The Way Home homepage"
+          onClick={closeMenu}
         >
           <span className="brand-leaf">❧</span>
 
@@ -181,7 +184,7 @@ function App() {
         <nav
           className={menuOpen ? 'open' : ''}
           aria-label="Main navigation"
-          onClick={() => setMenuOpen(false)}
+          onClick={closeMenu}
         >
           <a className="active" href="#home">
             Home
@@ -215,9 +218,7 @@ function App() {
         >
           <div className="hero-photo">
             <img
-              
-            src={`${base}images/homepage/home_01.jpg`}
-
+              src={`${base}images/homepage/home_01.jpg`}
               alt="The Way Home guest accommodation entrance"
             />
           </div>
@@ -226,7 +227,7 @@ function App() {
             <h1>
               Your home away from home
               <br />
-              on South Africa's West Coast
+              on South Africa&apos;s West Coast
             </h1>
 
             <div className="ornament">
@@ -234,12 +235,12 @@ function App() {
             </div>
 
             <p>
-              Located in Vredenburg, The Way Home is
-              a family residence converted into a
-              welcoming self-catering cottage with
-              its own private entrance, off-street
-              parking and everything you need for
-              a comfortable stay.
+              Located in Vredenburg, The Way Home
+              is a family residence converted into
+              a welcoming self-catering cottage
+              with its own private entrance,
+              off-street parking and everything
+              you need for a comfortable stay.
             </p>
 
             <div className="hero-features">
@@ -248,7 +249,6 @@ function App() {
                   <span aria-hidden="true">
                     {symbol}
                   </span>
-
                   <small>{label}</small>
                 </div>
               ))}
@@ -279,7 +279,7 @@ function App() {
             <div className="gallery">
               <img
                 src={photos[photoIndex]}
-                alt={`The Cottage interior photograph ${
+                alt={`The Cottage photograph ${
                   photoIndex + 1
                 } of ${photos.length}`}
               />
@@ -333,9 +333,10 @@ function App() {
 
               <p>
                 A separate double bedroom and a
-                welcoming living area with a double
-                bed, single bed and double sleeper
-                couch. With its own private entrance.
+                welcoming living area with a
+                double bed, single bed and double
+                sleeper couch. With its own
+                private entrance.
               </p>
 
               <ul>
@@ -361,7 +362,7 @@ function App() {
               </ul>
             </div>
 
-            {/* BOOKING CALENDAR */}
+            {/* BOOKING SECTION */}
 
             <div className="booking-column">
               <CalendarPreview />
@@ -397,9 +398,10 @@ function App() {
 
           <p>
             A selection of handcrafted items,
-            gifts and local treats. From home-grown
-            goodness to unique, locally made crafts
-            inspired by the West Coast.
+            gifts and local treats. From
+            home-grown goodness to unique,
+            locally made crafts inspired
+            by the West Coast.
           </p>
 
           <span className="shop-coming">
@@ -423,11 +425,14 @@ function App() {
             <p>
               Have a question about staying with us?
               <br />
-              We'd love to hear from you.
+              We&apos;d love to hear from you.
             </p>
           </div>
 
+          {/* CONTACT DETAILS */}
+
           <div className="contact-details">
+
             <p>
               <span>📍</span>
               <strong>The Way Home</strong>
@@ -437,8 +442,8 @@ function App() {
 
             <p>
               <span>☎</span>
-              <a href="tel:+27227133134">
-                +27 22 713 3134
+              <a href={`tel:${phoneLink}`}>
+                {phoneDisplay}
               </a>
             </p>
 
@@ -451,12 +456,13 @@ function App() {
 
             <a
               className="whatsapp"
-              href="https://wa.me/27227133134"
+              href={whatsappLink}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
             >
               Chat on WhatsApp
             </a>
+
           </div>
 
           {/* GOOGLE MAP */}
@@ -479,7 +485,7 @@ function App() {
               className="directions-button"
               href={mapsUrl}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
             >
               ➤ &nbsp; Get Directions
             </a>
@@ -487,7 +493,7 @@ function App() {
             <a
               href={mapsUrl}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
             >
               Open in Google Maps ↗
             </a>
@@ -505,7 +511,7 @@ function App() {
         </span>
       </footer>
 
-      {/* INDEPENDENT BOOKING POP-UP */}
+      {/* BOOKING POP-UP */}
 
       <BookingModal
         isOpen={bookingOpen}
