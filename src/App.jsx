@@ -6,11 +6,14 @@ import './App.css'
 // GitHub Pages compatible image paths
 const base = import.meta.env.BASE_URL
 
+
 const photos = [
-  `${base}images/cottage/cottage_slide_01.jpg`,
-  `${base}images/cottage/cottage_slide_02.jpg`,
-  `${base}images/cottage/cottage_slide_04.jpg`,
+  `${base}images/cottage/cottage_bedroom.jpg`,
+  `${base}images/cottage/cottage_kitchen.jpg`,
+  `${base}images/cottage/cottage_sleeping.jpg`,
+  `${base}images/cottage/cottage_bathroom.jpg`,
 ]
+
 
 // Property details
 const address = '1 Ibis Street, Vredenburg, 7380, South Africa'
@@ -331,13 +334,25 @@ function App() {
             <div className="cottage-info">
               <h3>The Cottage</h3>
 
+              
               <p>
-                A separate double bedroom and a
-                welcoming living area with a
-                double bed, single bed and double
-                sleeper couch. With its own
-                private entrance.
+                Welcome to The Cottage, a comfortable self-catering
+                retreat in Vredenburg on South Africa&apos;s beautiful
+                West Coast.
               </p>
+
+              <p>
+                The Cottage features a separate double bedroom and
+                an additional sleeping area with bunk beds and a
+                single bed. Guests can enjoy a self-catering kitchen,
+                Wi-Fi, off-street parking and a private entrance.
+              </p>
+
+              <p>
+                Ideal for families or small groups looking for a
+                relaxing home away from home.
+              </p>
+
 
               <ul>
                 <li>
