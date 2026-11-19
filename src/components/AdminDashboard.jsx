@@ -1,8 +1,9 @@
 
 import {useEffect, useMemo, useState} from 'react'
-import {collection, onSnapshot} from 'firebase/firestore'
+import {collection, deleteDoc, doc, onSnapshot} from 'firebase/firestore'
 import {signOut} from 'firebase/auth'
 import {auth, db} from '../firebase'
+import ManualReservation from './ManualReservation.jsx'
 
 const HOLD_HOURS = 48
 
@@ -148,6 +149,8 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [monthOffset, setMonthOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
+  const [showManualReservation, setShowManualReservation] = useState(false)
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
@@ -229,6 +232,29 @@ function AdminDashboard() {
     ? getBookingsForDate(selectedDate)
     : []
 
+const handleDeleteReservation = async (booking) => {
+  const confirmed = window.confirm(
+    `Permanently delete the reservation for ${booking.guestName || 'Guest'}?\n\n` +
+    `Arrival: ${formatDate(booking.checkIn)}\n` +
+    `Departure: ${formatDate(booking.checkOut)}\n\n` +
+    'This action cannot be undone.'
+  )
+
+  if (!confirmed) return
+
+  setDeletingId(booking.id)
+  setError('')
+
+  try {
+    await deleteDoc(doc(db, 'bookings', booking.id))
+  } catch (err) {
+    console.error('Failed to delete reservation:', err)
+    setError('Unable to delete reservation. Check Firebase permissions.')
+  } finally {
+    setDeletingId(null)
+  }
+}
+
   const handleSignOut = async () => {
     try {
       await signOut(auth)
@@ -240,6 +266,27 @@ function AdminDashboard() {
   return (
     <main style={styles.page}>
       <header style={styles.header}>
+        <section style={styles.card}>
+  <button
+    type="button"
+    style={styles.button}
+    onClick={() => setShowManualReservation((current) => !current)}
+  >
+    {showManualReservation
+      ? 'Close Manual Reservation'
+      : '+ Add Manual Reservation'}
+  </button>
+
+  {showManualReservation && (
+    <div style={{marginTop: '20px'}}>
+      <ManualReservation
+        bookings={bookings}
+        onSaved={() => setShowManualReservation(false)}
+        onCancel={() => setShowManualReservation(false)}
+      />
+    </div>
+  )}
+</section>
         <div>
           <h1 style={{marginBottom: '5px'}}>
             The Way Home
@@ -521,6 +568,26 @@ function AdminDashboard() {
               <p>
                 Guests: {booking.guests ?? 'Not specified'}
               </p>
+
+                <button
+                type="button"
+                onClick={() => handleDeleteReservation(booking)}
+                disabled={deletingId === booking.id}
+                style={{
+                    background: '#b00020',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '7px',
+                    padding: '9px 14px',
+                    cursor: deletingId === booking.id ? 'wait' : 'pointer',
+                    marginTop: '8px'
+                }}
+                >
+                {deletingId === booking.id
+                    ? 'Deleting...'
+                    : 'Delete Reservation'}
+                </button>
+
             </article>
           ))}
       </section>

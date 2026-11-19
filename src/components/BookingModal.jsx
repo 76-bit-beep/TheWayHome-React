@@ -1,4 +1,4 @@
-
+﻿
 import {useEffect, useState} from 'react'
 import './BookingModal.css'
 
@@ -211,7 +211,7 @@ function BookingModal({isOpen, onClose}) {
           onClick={onClose}
           aria-label="Close booking calendar"
         >
-          ×
+          ├ù
         </button>
 
         <h2 id="booking-title">The Cottage</h2>
@@ -221,7 +221,7 @@ function BookingModal({isOpen, onClose}) {
         </p>
 
         <p className="booking-notice">
-          TEST MODE — Live availability is not connected.
+          TEST MODE ÔÇö Live availability is not connected.
           No reservations will be submitted or held.
         </p>
 
@@ -238,7 +238,7 @@ function BookingModal({isOpen, onClose}) {
               }
               aria-label="Previous month"
             >
-              ❮
+              ÔØ«
             </button>
 
             <strong>
@@ -253,7 +253,7 @@ function BookingModal({isOpen, onClose}) {
               onClick={() => changeMonth(1)}
               aria-label="Next month"
             >
-              ❯
+              ÔØ»
             </button>
           </div>
 
@@ -519,7 +519,7 @@ function BookingModal({isOpen, onClose}) {
             </h3>
 
             <p style={{fontWeight: 'bold'}}>
-              TEST ONLY — No booking has been submitted.
+              TEST ONLY ÔÇö No booking has been submitted.
             </p>
           </div>
         )}
