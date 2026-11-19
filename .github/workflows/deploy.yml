@@ -1,4 +1,4 @@
-
+﻿
 name: Deploy The Way Home to GitHub Pages
 
 on:
@@ -35,6 +35,9 @@ jobs:
       - name: Build website
         run: npm run build
 
+      - name: Create GitHub Pages routing fallback
+        run: cp dist/index.html dist/404.html
+
       - name: Upload website
         uses: actions/upload-pages-artifact@v3
         with:
@@ -52,3 +55,4 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
