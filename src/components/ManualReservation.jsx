@@ -1,7 +1,6 @@
 
 import {useState} from 'react'
-import {addDoc, collection, serverTimestamp} from 'firebase/firestore'
-import {db} from '../firebase'
+import {createConfirmedReservation} from '../utils/availabilityFirestore'
 import {isStayBlocked} from '../utils/bookingAvailability'
 
 const PRICE_PER_PERSON = 400
@@ -91,18 +90,15 @@ function ManualReservation({bookings = [], onSaved, onCancel}) {
     setSaving(true)
 
     try {
-      await addDoc(collection(db, 'bookings'), {
-        guestName: form.guestName.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim(),
-        checkIn: form.checkIn,
-        checkOut: form.checkOut,
-        guests,
-        notes: form.notes.trim(),
-        status: 'confirmed',
-        source: 'manual',
-        createdAt: serverTimestamp()
-      })
+                await createConfirmedReservation({
+            guestName: form.guestName,
+            email: form.email,
+            phone: form.phone,
+            checkIn: form.checkIn,
+            checkOut: form.checkOut,
+            guests,
+            notes: form.notes
+            })
 
       setForm({...initialForm})
       onSaved?.()

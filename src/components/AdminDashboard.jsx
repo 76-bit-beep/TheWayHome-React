@@ -1,6 +1,7 @@
 
 import {useEffect, useMemo, useState} from 'react'
-import {collection, deleteDoc, doc, onSnapshot} from 'firebase/firestore'
+import {collection, onSnapshot} from 'firebase/firestore'
+import {deleteConfirmedReservation} from '../utils/availabilityFirestore'
 import {signOut} from 'firebase/auth'
 import {auth, db} from '../firebase'
 import ManualReservation from './ManualReservation.jsx'
@@ -246,7 +247,7 @@ const handleDeleteReservation = async (booking) => {
   setError('')
 
   try {
-    await deleteDoc(doc(db, 'bookings', booking.id))
+    await deleteConfirmedReservation(booking.id)
   } catch (err) {
     console.error('Failed to delete reservation:', err)
     setError('Unable to delete reservation. Check Firebase permissions.')
