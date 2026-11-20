@@ -75,11 +75,11 @@ function AdminLogin() {
   if (checkingAuth) {
     return (
       <main style={{
-        maxWidth: '420px',
-        margin: '80px auto',
-        padding: '30px',
-        textAlign: 'center',
-        fontFamily: 'Arial, sans-serif'
+        maxWidth:'420px',
+        margin:'80px auto',
+        padding:'30px',
+        textAlign:'center',
+        fontFamily:'Arial, sans-serif'
       }}>
         <h2>The Way Home</h2>
         <p>Checking administrator access...</p>
@@ -95,21 +95,21 @@ function AdminLogin() {
   // Administrator login screen
   return (
     <main style={{
-      maxWidth: '420px',
-      margin: '80px auto',
-      padding: '30px',
-      fontFamily: 'Arial, sans-serif'
+      maxWidth:'420px',
+      margin:'80px auto',
+      padding:'30px',
+      fontFamily:'Arial, sans-serif'
     }}>
       <h1 style={{
-        color: '#082f6d',
-        marginBottom: '12px'
+        color:'#082f6d',
+        marginBottom:'12px'
       }}>
         The Way Home
       </h1>
 
       <h2 style={{
-        color: '#082f6d',
-        marginBottom: '28px'
+        color:'#082f6d',
+        marginBottom:'28px'
       }}>
         Administrator Login
       </h2>
@@ -127,13 +127,13 @@ function AdminLogin() {
           autoComplete="username"
           required
           style={{
-            width: '100%',
-            boxSizing: 'border-box',
-            padding: '12px',
-            marginTop: '6px',
-            marginBottom: '20px',
-            borderRadius: '6px',
-            border: '1px solid #aaa'
+            width:'100%',
+            boxSizing:'border-box',
+            padding:'12px',
+            marginTop:'6px',
+            marginBottom:'20px',
+            borderRadius:'6px',
+            border:'1px solid #aaa'
           }}
         />
 
@@ -149,13 +149,13 @@ function AdminLogin() {
           autoComplete="current-password"
           required
           style={{
-            width: '100%',
-            boxSizing: 'border-box',
-            padding: '12px',
-            marginTop: '6px',
-            marginBottom: '24px',
-            borderRadius: '6px',
-            border: '1px solid #aaa'
+            width:'100%',
+            boxSizing:'border-box',
+            padding:'12px',
+            marginTop:'6px',
+            marginBottom:'24px',
+            borderRadius:'6px',
+            border:'1px solid #aaa'
           }}
         />
 
@@ -163,16 +163,16 @@ function AdminLogin() {
           type="submit"
           disabled={loading}
           style={{
-            width: '100%',
-            padding: '13px',
-            background: '#082f6d',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '16px',
-            fontWeight: 'bold',
-            cursor: loading ? 'wait' : 'pointer',
-            opacity: loading ? 0.7 : 1
+            width:'100%',
+            padding:'13px',
+            background:'#082f6d',
+            color:'#fff',
+            border:'none',
+            borderRadius:'8px',
+            fontSize:'16px',
+            fontWeight:'bold',
+            cursor:loading ? 'wait' : 'pointer',
+            opacity:loading ? 0.7 : 1
           }}
         >
           {loading ? 'Signing in...' : 'Sign In'}
@@ -183,8 +183,8 @@ function AdminLogin() {
         <p
           role="alert"
           style={{
-            color: '#b00020',
-            marginTop: '18px'
+            color:'#b00020',
+            marginTop:'18px'
           }}
         >
           {error}
@@ -192,10 +192,10 @@ function AdminLogin() {
       )}
 
       <p style={{
-        marginTop: '28px',
-        textAlign: 'center',
-        color: '#666',
-        fontSize: '13px'
+        marginTop:'28px',
+        textAlign:'center',
+        color:'#666',
+        fontSize:'13px'
       }}>
         Authorised personnel only
       </p>

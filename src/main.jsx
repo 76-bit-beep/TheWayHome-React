@@ -3,7 +3,9 @@ import {StrictMode} from 'react'
 import {createRoot} from 'react-dom/client'
 import './index.css'
 
-const isAdminPage = window.location.pathname.replace(/\/+$/, '').endsWith('/admin')
+const isAdminPage = window.location.pathname
+  .replace(/\/+$/, '')
+  .endsWith('/admin')
 
 const loadPage = async () => {
   const {default: Page} = isAdminPage
