@@ -1,5 +1,7 @@
-﻿
+
 import {useEffect, useState} from 'react'
+import {addDoc, collection, getDocsFromServer, onSnapshot, serverTimestamp} from 'firebase/firestore'
+import {db} from '../firebase.js'
 import './BookingModal.css'
 
 const PRICE_PER_PERSON_PER_NIGHT = 400
@@ -22,6 +24,19 @@ function dateKey(date) {
   ].join('-')
 }
 
+const getOccupiedNights = (start, end) => {
+  const nights = []
+  const current = new Date(`${dateKey(start)}T12:00:00Z`)
+  const checkout = dateKey(end)
+
+  while (current.toISOString().slice(0, 10) < checkout && nights.length <= 30) {
+    nights.push(current.toISOString().slice(0, 10))
+    current.setUTCDate(current.getUTCDate() + 1)
+  }
+
+  return nights
+}
+
 function BookingModal({isOpen, onClose}) {
   const [month, setMonth] = useState(() => {
     const today = new Date()
@@ -41,8 +56,50 @@ function BookingModal({isOpen, onClose}) {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [message, setMessage] = useState('')
+
   const [preview, setPreview] = useState(false)
   const [error, setError] = useState('')
+
+  // Booking submission state
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [blockedNights, setBlockedNights] = useState(new Set())
+  const [availabilityLoading, setAvailabilityLoading] = useState(true)
+  const [availabilityError, setAvailabilityError] = useState('')
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    setAvailabilityLoading(true)
+    setAvailabilityError('')
+
+    const unsubscribe = onSnapshot(
+      collection(db, 'publicAvailability'),
+      (snapshot) => {
+        setBlockedNights(new Set(snapshot.docs
+          .filter((item) => item.data().status === 'confirmed')
+          .map((item) => item.id)))
+        setAvailabilityLoading(false)
+        setAvailabilityError('')
+      },
+      (err) => {
+        console.error('Availability subscription failed:', err)
+        setAvailabilityLoading(false)
+        setAvailabilityError('Unable to load availability. Please try again later.')
+      }
+    )
+
+    return () => unsubscribe()
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!checkIn || !checkOut) return
+    if (getOccupiedNights(checkIn, checkOut).some((night) => blockedNights.has(night))) {
+      setCheckOut(null)
+      setPreview(false)
+      setError('Those dates are no longer available. Please choose another stay.')
+    }
+  }, [blockedNights, checkIn, checkOut])
 
   useEffect(() => {
     if (!isOpen) return
@@ -123,7 +180,21 @@ function BookingModal({isOpen, onClose}) {
   const selectDate = (day) => {
     const selected = new Date(year, monthNumber, day)
 
-    if (selected < today) return
+    if (selected < today || availabilityLoading || availabilityError) return
+
+    const selectedKey = dateKey(selected)
+    const isBlocked = blockedNights.has(selectedKey)
+    const isCheckoutChoice = checkIn && !checkOut && selected > checkIn
+
+    if (isBlocked && !isCheckoutChoice) return
+
+    if (isCheckoutChoice) {
+      const occupied = getOccupiedNights(checkIn, selected)
+      if (occupied.length > 30 || occupied.some((night) => blockedNights.has(night))) {
+        setError('Your selected stay overlaps booked dates. Please choose different dates.')
+        return
+      }
+    }
 
     resetPreview()
 
@@ -140,8 +211,18 @@ function BookingModal({isOpen, onClose}) {
     setError('')
     setPreview(false)
 
-    if (!checkIn || !checkOut || nights < 1) {
-      setError('Please select your arrival and departure dates.')
+    if (availabilityLoading || availabilityError) {
+      setError('Availability is not ready. Please try again shortly.')
+      return
+    }
+
+    if (checkIn && checkOut && getOccupiedNights(checkIn, checkOut).some((night) => blockedNights.has(night))) {
+      setError('These dates are already booked. Please select another stay.')
+      return
+    }
+
+    if (!checkIn || !checkOut || nights < 1 || nights > 30) {
+      setError('Please select a stay between 1 and 30 nights.')
       return
     }
 
@@ -160,10 +241,69 @@ function BookingModal({isOpen, onClose}) {
       return
     }
 
-    // TEST MODE ONLY.
-    // No Firebase writes, emails or booking submissions.
+    // Show the booking preview before submission.
     setPreview(true)
   }
+
+  const handleSubmitBooking = async () => {
+    if (!preview || submitting || submitted) return
+
+    if (
+      !checkIn ||
+      !checkOut ||
+      checkIn < today ||
+      nights < 1 ||
+      nights > 30 ||
+      availabilityLoading ||
+      Boolean(availabilityError) ||
+      !guestName.trim() ||
+      !email.trim() ||
+      !phone.trim()
+    ) {
+      setError('Please review your booking details.')
+      return
+    }
+
+    setSubmitting(true)
+    setError('')
+
+    try {
+      // Read fresh availability from the server before creating a request.
+      // The admin's atomic acceptance transaction remains the final safeguard.
+      const availability = await getDocsFromServer(collection(db, 'publicAvailability'))
+      const latestBlocked = new Set(availability.docs
+        .filter((item) => item.data().status === 'confirmed')
+        .map((item) => item.id))
+      setBlockedNights(latestBlocked)
+
+      if (getOccupiedNights(checkIn, checkOut).some((night) => latestBlocked.has(night))) {
+        setPreview(false)
+        setError('These dates have just been booked. Please select different dates.')
+        return
+      }
+
+      await addDoc(collection(db, 'bookingRequests'), {
+        guestName:guestName.trim(),
+        email:email.trim(),
+        phone:phone.trim(),
+        guests:Number(guests),
+        checkIn:dateKey(checkIn),
+        checkOut:dateKey(checkOut),
+        notes:message.trim(),
+        status:'pending',
+        createdAt:serverTimestamp()
+      })
+
+      setSubmitted(true)
+      setPreview(false)
+    } catch (err) {
+      console.error('Booking request failed:', err)
+      setError('Unable to verify availability or submit your request. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
 
   const calendarCells = [
     ...Array(startingDay).fill(null),
@@ -220,9 +360,10 @@ function BookingModal({isOpen, onClose}) {
           Select your preferred booking dates
         </p>
 
-        <p className="booking-notice">
-          TEST MODE ÔÇö Live availability is not connected.
-          No reservations will be submitted or held.
+        {availabilityLoading && <p role="status">Checking live availability...</p>}
+        {availabilityError && <p role="alert" style={{color:'#b00020'}}>{availabilityError}</p>}
+        <p style={{fontSize:'13px',color:'#435b72'}}>
+          Unavailable nights are marked as booked. A booked date may still be selected as checkout.
         </p>
 
         {/* CALENDAR */}
@@ -278,6 +419,10 @@ function BookingModal({isOpen, onClose}) {
               const date = new Date(year, monthNumber, day)
               const key = dateKey(date)
               const isPast = date < today
+              const isBlocked = blockedNights.has(key)
+              const canCheckout = Boolean(checkIn && !checkOut && date > checkIn &&
+                !getOccupiedNights(checkIn, date).some((night) => blockedNights.has(night)))
+              const unavailable = isBlocked && !canCheckout
 
               const isStart = checkIn &&
                 dateKey(checkIn) === key
@@ -294,14 +439,24 @@ function BookingModal({isOpen, onClose}) {
                 <button
                   key={key}
                   type="button"
-                  disabled={isPast}
+                  disabled={isPast || unavailable || availabilityLoading || Boolean(availabilityError) || submitted}
                   onClick={() => selectDate(day)}
+                  title={unavailable ? 'Booked — unavailable for check-in or overnight stay' : undefined}
+                  aria-label={`${formatDate(date)}${unavailable ? ', booked' : ''}`}
                   className={[
                     'booking-date',
                     isPast ? 'past' : '',
+                    unavailable ? 'booked' : '',
                     isStart || isEnd ? 'selected' : '',
                     inRange ? 'in-range' : ''
                   ].filter(Boolean).join(' ')}
+                  style={unavailable ? {
+                    background:'#f5d9dc',
+                    color:'#8b1d2c',
+                    textDecoration:'line-through',
+                    cursor:'not-allowed',
+                    opacity:0.85
+                  } : undefined}
                   aria-pressed={Boolean(isStart || isEnd)}
                 >
                   {day}
@@ -309,6 +464,9 @@ function BookingModal({isOpen, onClose}) {
               )
             })}
           </div>
+          <p style={{fontSize:'12px',margin:'10px 0 0',color:'#8b1d2c'}}>
+            Red crossed-out dates are booked.
+          </p>
         </div>
 
         {/* SELECTED DATES */}
@@ -475,21 +633,22 @@ function BookingModal({isOpen, onClose}) {
           </button>
         </form>
 
-        {/* TEST BOOKING PREVIEW */}
+
+        {/* BOOKING REQUEST PREVIEW */}
 
         {preview && (
           <div
             role="status"
             style={{
-              marginTop: '18px',
-              padding: '18px',
-              background: '#eef8ff',
-              border: '1px solid #83bde8',
-              borderRadius: '10px',
-              color: '#082f6d'
+              marginTop:'18px',
+              padding:'18px',
+              background:'#eef8ff',
+              border:'1px solid #83bde8',
+              borderRadius:'10px',
+              color:'#082f6d'
             }}
           >
-            <h3 style={{marginTop: 0}}>
+            <h3 style={{marginTop:0}}>
               Booking Request Preview
             </h3>
 
@@ -518,18 +677,69 @@ function BookingModal({isOpen, onClose}) {
               Estimated total: R {total.toLocaleString('en-ZA')}
             </h3>
 
-            <p style={{fontWeight: 'bold'}}>
-              TEST ONLY ÔÇö No booking has been submitted.
+            <p style={{fontWeight:'bold'}}>
+              Please review your booking details before submitting.
+              Your reservation is not confirmed until the owners approve it.
+            </p>
+
+            <button
+              type="button"
+              className="booking-submit"
+              onClick={handleSubmitBooking}
+              disabled={submitting || submitted || availabilityLoading || Boolean(availabilityError)}
+            >
+              {submitting ? 'Submitting...' : 'Submit Booking Request'}
+            </button>
+          </div>
+        )}
+
+        {/* SUBMISSION ERROR */}
+
+        {error && preview && (
+          <p role="alert" style={{color:'#b00020'}}>
+            {error}
+          </p>
+        )}
+
+        {/* SUCCESS MESSAGE */}
+
+        {submitted && (
+          <div
+            role="status"
+            style={{
+              marginTop:'18px',
+              padding:'18px',
+              background:'#e8f6ee',
+              border:'1px solid #85c9a0',
+              borderRadius:'10px',
+              color:'#175b35'
+            }}
+          >
+            <h3>Booking Request Submitted!</h3>
+
+            <p>
+              Thank you! Your booking request has been received.
+            </p>
+
+            <p>
+              Your request is pending approval from The Way Home.
+              We will contact you to confirm availability.
+            </p>
+
+            <p>
+              No booking has been confirmed yet.
             </p>
           </div>
         )}
 
+        {/* BOOKING DISCLAIMER */}
+
         <p className="booking-disclaimer">
-          This is an estimated price based on the standard
-          rate of R400 per person per night. Availability
-          and final pricing must be confirmed by the owners.
-          This test form does not send information to Firebase,
-          email or WhatsApp.
+          Prices are estimated at R400 per person per night.
+          Availability and final pricing must be confirmed
+          by the owners. Submitting a booking request does
+          not guarantee a reservation. No automatic email
+          or WhatsApp confirmation is sent.
         </p>
       </div>
     </div>

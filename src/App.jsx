@@ -335,23 +335,23 @@ function App() {
               <h3>The Cottage</h3>
 
               
-              <p>
-                Welcome to The Cottage, a comfortable self-catering
-                retreat in Vredenburg on South Africa&apos;s beautiful
-                West Coast.
-              </p>
+            <p>
+              Welcome to The Cottage, a comfortable self-catering
+              retreat in Vredenburg on South Africa&apos;s beautiful
+              West Coast.
+            </p>
 
-              <p>
-                The Cottage features a separate double bedroom and
-                an additional sleeping area with bunk beds and a
-                single bed. Guests can enjoy a self-catering kitchen,
-                Wi-Fi, off-street parking and a private entrance.
-              </p>
+            <p>
+              The Cottage features a separate double bedroom and
+              an additional sleeping area with bunk beds and a
+              single bed. Guests can enjoy a self-catering kitchen,
+              Wi-Fi, off-street parking and a private entrance.
+            </p>
 
-              <p>
-                Ideal for families or small groups looking for a
-                relaxing home away from home.
-              </p>
+            <p>
+              Ideal for families or small groups looking for a
+              relaxing home away from home.
+            </p>
 
 
               <ul>

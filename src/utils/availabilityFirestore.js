@@ -6,58 +6,23 @@ import {
   serverTimestamp
 } from 'firebase/firestore'
 
-import {db} from '../firebase'
+import {db} from '../firebase.js'
+import {getBookedNights} from './bookingDates.js'
 
 // =====================================================
-// 1. GENERATE BOOKED NIGHTS
-// =====================================================
-
-// Generate occupied nights between check-in and checkout.
-// Checkout day is excluded.
-export const getBookedNights = (checkIn, checkOut) => {
-  const datePattern = /^\d{4}-\d{2}-\d{2}$/
-
-  if (
-    typeof checkIn !== 'string' ||
-    typeof checkOut !== 'string' ||
-    !datePattern.test(checkIn) ||
-    !datePattern.test(checkOut)
-  ) {
-    throw new Error('Invalid booking date format')
-  }
-
-  const current = new Date(`${checkIn}T00:00:00Z`)
-  const end = new Date(`${checkOut}T00:00:00Z`)
-
-  if (
-    !Number.isFinite(current.getTime()) ||
-    !Number.isFinite(end.getTime()) ||
-    current.toISOString().slice(0, 10) !== checkIn ||
-    end.toISOString().slice(0, 10) !== checkOut ||
-    current >= end
-  ) {
-    throw new Error('Invalid booking dates')
-  }
-
-  const nights = []
-
-  while (current < end) {
-    nights.push(current.toISOString().slice(0, 10))
-    current.setUTCDate(current.getUTCDate() + 1)
-  }
-
-  return nights
-}
-
-// =====================================================
-// 2. CHECK NIGHT AVAILABILITY
+// 1. CHECK NIGHT AVAILABILITY
 // =====================================================
 
 // Must be called inside a Firestore transaction.
 // Existing availability documents cannot be overwritten.
-export const checkNightsAvailable = async (transaction, nights) => {
+// An optional database allows isolated emulator testing.
+export const checkNightsAvailable = async (
+  transaction,
+  nights,
+  database = db
+) => {
   const nightRefs = nights.map((night) =>
-    doc(db, 'publicAvailability', night)
+    doc(database, 'publicAvailability', night)
   )
 
   const snapshots = []
@@ -95,18 +60,25 @@ export const checkNightsAvailable = async (transaction, nights) => {
 }
 
 // =====================================================
-// 3. CREATE CONFIRMED RESERVATION
+// 2. CREATE CONFIRMED RESERVATION
 // =====================================================
 
 // Atomically create the private reservation and
 // public availability documents.
-export const createConfirmedReservation = async (reservation) => {
+//
+// The optional database parameter supports emulator tests.
+// Normal application calls continue using the default db.
+export const createConfirmedReservation = async (
+  reservation,
+  database = db
+) => {
+  // Validate dates and enforce the 30-night maximum.
   const nights = getBookedNights(
     reservation.checkIn,
     reservation.checkOut
   )
 
-  const bookingRef = doc(collection(db, 'bookings'))
+  const bookingRef = doc(collection(database, 'bookings'))
 
   const bookingData = {
     guestName: reservation.guestName.trim(),
@@ -135,11 +107,12 @@ export const createConfirmedReservation = async (reservation) => {
     throw new Error('Invalid reservation details')
   }
 
-  await runTransaction(db, async (transaction) => {
+  await runTransaction(database, async (transaction) => {
     // Check all nights before writing anything.
     const nightRefs = await checkNightsAvailable(
       transaction,
-      nights
+      nights,
+      database
     )
 
     // Create private booking.
@@ -148,8 +121,8 @@ export const createConfirmedReservation = async (reservation) => {
     // Create public availability documents.
     nightRefs.forEach((nightRef) => {
       transaction.set(nightRef, {
-        bookingId: bookingRef.id,
-        status: 'confirmed'
+        bookingId:bookingRef.id,
+        status:'confirmed'
       })
     })
   })
@@ -158,12 +131,17 @@ export const createConfirmedReservation = async (reservation) => {
 }
 
 // =====================================================
-// 4. DELETE CONFIRMED RESERVATION
+// 3. DELETE CONFIRMED RESERVATION
 // =====================================================
 
 // Atomically delete the private reservation and
 // its matching public availability documents.
-export const deleteConfirmedReservation = async (bookingId) => {
+//
+// The optional database parameter supports emulator tests.
+export const deleteConfirmedReservation = async (
+  bookingId,
+  database = db
+) => {
   if (
     typeof bookingId !== 'string' ||
     !bookingId.trim()
@@ -171,9 +149,9 @@ export const deleteConfirmedReservation = async (bookingId) => {
     throw new Error('Invalid reservation ID')
   }
 
-  const bookingRef = doc(db, 'bookings', bookingId)
+  const bookingRef = doc(database, 'bookings', bookingId)
 
-  await runTransaction(db, async (transaction) => {
+  await runTransaction(database, async (transaction) => {
     // Read the private reservation.
     const bookingSnapshot = await transaction.get(bookingRef)
 
@@ -195,7 +173,7 @@ export const deleteConfirmedReservation = async (bookingId) => {
     )
 
     const nightRefs = nights.map((night) =>
-      doc(db, 'publicAvailability', night)
+      doc(database, 'publicAvailability', night)
     )
 
     const nightSnapshots = []
@@ -236,4 +214,73 @@ export const deleteConfirmedReservation = async (bookingId) => {
       }
     })
   })
+}
+// =====================================================
+// 4. ACCEPT CUSTOMER BOOKING REQUEST
+// =====================================================
+
+export const acceptBookingRequest = async (
+  requestId,
+  database = db
+) => {
+  if (typeof requestId !== 'string' || !requestId.trim()) {
+    throw new Error('Invalid booking request ID')
+  }
+
+  const requestRef = doc(database, 'bookingRequests', requestId)
+  const bookingRef = doc(collection(database, 'bookings'))
+
+  await runTransaction(database, async (transaction) => {
+    const requestSnapshot = await transaction.get(requestRef)
+
+    if (!requestSnapshot.exists()) {
+      throw new Error('Booking request no longer exists')
+    }
+
+    const request = requestSnapshot.data()
+
+    if (request.status !== 'pending') {
+      throw new Error('This request has already been processed')
+    }
+
+    const nights = getBookedNights(request.checkIn, request.checkOut)
+
+    const nightRefs = await checkNightsAvailable(
+      transaction,
+      nights,
+      database
+    )
+
+
+    // All reads are complete. Begin atomic writes.
+    transaction.set(bookingRef, {
+      guestName:request.guestName,
+      email:request.email,
+      phone:request.phone,
+      guests:request.guests,
+      checkIn:request.checkIn,
+      checkOut:request.checkOut,
+      notes:request.notes,
+      status:'confirmed',
+      source:'request',
+      requestId:requestId,
+      createdAt:serverTimestamp()
+    })
+
+    // Block every night included in the reservation.
+    nightRefs.forEach((nightRef) => {
+      transaction.set(nightRef, {
+        bookingId:bookingRef.id,
+        status:'confirmed'
+      })
+    })
+
+    // Mark the original customer request as accepted.
+    transaction.update(requestRef, {
+      status:'accepted',
+      bookingId:bookingRef.id
+    })
+  })
+
+  return bookingRef.id
 }

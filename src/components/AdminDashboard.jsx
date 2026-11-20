@@ -1,12 +1,10 @@
 
 import {useEffect, useMemo, useState} from 'react'
-import {collection, onSnapshot} from 'firebase/firestore'
-import {deleteConfirmedReservation} from '../utils/availabilityFirestore'
+import {collection, doc, onSnapshot, updateDoc} from 'firebase/firestore'
+import {acceptBookingRequest, deleteConfirmedReservation} from '../utils/availabilityFirestore'
 import {signOut} from 'firebase/auth'
 import {auth, db} from '../firebase'
 import ManualReservation from './ManualReservation.jsx'
-
-const HOLD_HOURS = 48
 
 const styles = {
   page: {
@@ -100,41 +98,6 @@ const formatDate = (value) => {
   })
 }
 
-const getHoldExpiry = (booking) => {
-  if (booking.holdExpiresAt?.toDate) {
-    return booking.holdExpiresAt.toDate()
-  }
-
-  if (typeof booking.holdExpiresAt === 'string') {
-    const date = new Date(booking.holdExpiresAt)
-
-    if (!Number.isNaN(date.getTime())) {
-      return date
-    }
-  }
-
-  // Do not invent an expiry when none was saved.
-  return null
-}
-
-const getBookingState = (booking, now) => {
-  if (booking.status === 'confirmed') {
-    return 'confirmed'
-  }
-
-  if (booking.status !== 'pending') {
-    return 'inactive'
-  }
-
-  const expiry = getHoldExpiry(booking)
-
-  if (!expiry || expiry.getTime() <= now) {
-    return 'inactive'
-  }
-
-  return 'pending'
-}
-
 const overlapsDate = (booking, date) => {
   if (!parseDate(booking.checkIn) || !parseDate(booking.checkOut)) {
     return false
@@ -146,13 +109,17 @@ const overlapsDate = (booking, date) => {
 
 function AdminDashboard() {
   const [bookings, setBookings] = useState([])
+  const [bookingRequests, setBookingRequests] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [requestsLoading, setRequestsLoading] = useState(true)
+  const [requestsError, setRequestsError] = useState('')
   const [monthOffset, setMonthOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
+  const [processingRequestId, setProcessingRequestId] = useState(null)
+  const [requestActionError, setRequestActionError] = useState('')
   const [showManualReservation, setShowManualReservation] = useState(false)
-  const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
@@ -176,13 +143,28 @@ function AdminDashboard() {
     return () => unsubscribe()
   }, [])
 
-  // Refresh hold expiry calculations every minute.
+  // Customer requests are private and readable only by the administrator.
   useEffect(() => {
-    const timer = setInterval(() => {
-      setNow(Date.now())
-    }, 60000)
+    const unsubscribe = onSnapshot(
+      collection(db, 'bookingRequests'),
+      (snapshot) => {
+        const records = snapshot.docs.map((document) => ({
+          ...document.data(),
+          id:document.id
+        }))
 
-    return () => clearInterval(timer)
+        setBookingRequests(records)
+        setRequestsLoading(false)
+        setRequestsError('')
+      },
+      (err) => {
+        console.error('Unable to load booking requests:', err)
+        setRequestsError('Unable to load booking requests from Firebase.')
+        setRequestsLoading(false)
+      }
+    )
+
+    return () => unsubscribe()
   }, [])
 
   const currentMonth = useMemo(() => {
@@ -207,21 +189,19 @@ function AdminDashboard() {
   const blankDays = (currentMonth.getDay() + 6) % 7
 
   const activeBookings = useMemo(() => {
-    return bookings.filter((booking) => {
-      return getBookingState(booking, now) !== 'inactive'
-    })
-  }, [bookings, now])
+    return bookings.filter((booking) => booking.status === 'confirmed')
+  }, [bookings])
 
   const pendingBookings = useMemo(() => {
-    return activeBookings
-      .filter((booking) => getBookingState(booking, now) === 'pending')
+    return bookingRequests
+      .filter((booking) => booking.status === 'pending')
       .sort((a, b) => {
         const first = a.createdAt?.toMillis?.() || 0
         const second = b.createdAt?.toMillis?.() || 0
 
         return second - first
       })
-  }, [activeBookings, now])
+  }, [bookingRequests])
 
   const getBookingsForDate = (date) => {
     return activeBookings.filter((booking) => {
@@ -255,6 +235,43 @@ const handleDeleteReservation = async (booking) => {
     setDeletingId(null)
   }
 }
+
+  const handleRequestAction = async (booking, action) => {
+    if (processingRequestId || booking.status !== 'pending') return
+
+    const isAccept = action === 'accept'
+    const prompt = isAccept
+      ? `Accept the booking request for ${booking.guestName || 'Guest'}?\n\n` +
+        `Arrival: ${formatDate(booking.checkIn)}\n` +
+        `Departure: ${formatDate(booking.checkOut)}\n\n` +
+        'This will confirm the reservation and block its dates.'
+      : `Decline the booking request for ${booking.guestName || 'Guest'}?\n\n` +
+        'The requested dates will remain available.'
+
+    if (!window.confirm(prompt)) return
+
+    setProcessingRequestId(booking.id)
+    setRequestActionError('')
+
+    try {
+      if (isAccept) {
+        await acceptBookingRequest(booking.id)
+      } else {
+        await updateDoc(doc(db, 'bookingRequests', booking.id), {
+          status:'declined'
+        })
+      }
+    } catch (err) {
+      console.error(`Unable to ${action} booking request:`, err)
+      setRequestActionError(
+        isAccept
+          ? 'Unable to confirm approval. The dates may already be booked or Firebase may have rejected the operation. Refresh and check the request status before trying again.'
+          : 'Unable to decline this request. Please check Firebase permissions and try again.'
+      )
+    } finally {
+      setProcessingRequestId(null)
+    }
+  }
 
   const handleSignOut = async () => {
     try {
@@ -371,18 +388,10 @@ const handleDeleteReservation = async (booking) => {
             const reservations = getBookingsForDate(date)
 
             const confirmed = reservations.some((booking) => {
-              return getBookingState(booking, now) === 'confirmed'
+              return booking.status === 'confirmed'
             })
 
-            const pending = reservations.some((booking) => {
-              return getBookingState(booking, now) === 'pending'
-            })
-
-            const background = confirmed
-              ? '#c9f0d3'
-              : pending
-                ? '#ffe4a8'
-                : '#f2f8fc'
+            const background = confirmed ? '#c9f0d3' : '#f2f8fc'
 
             return (
               <button
@@ -393,9 +402,7 @@ const handleDeleteReservation = async (booking) => {
                 aria-label={`${formatDate(date)}, ${
                   confirmed
                     ? 'confirmed reservation'
-                    : pending
-                      ? 'pending reservation'
-                      : 'no reservation'
+                    : 'no reservation'
                 }`}
                 style={{
                   ...styles.day,
@@ -403,7 +410,7 @@ const handleDeleteReservation = async (booking) => {
                   border: selectedDate === date
                     ? '2px solid #082f6d'
                     : styles.day.border,
-                  fontWeight: confirmed || pending
+                  fontWeight: confirmed
                     ? 'bold'
                     : 'normal'
                 }}
@@ -422,7 +429,6 @@ const handleDeleteReservation = async (booking) => {
           fontSize: '14px'
         }}>
           <span>🟢 Confirmed</span>
-          <span>🟠 Pending (48-hour hold)</span>
           <span>⚪ No reservation</span>
         </div>
 
@@ -451,7 +457,7 @@ const handleDeleteReservation = async (booking) => {
                   </p>
 
                   <p>
-                    Status: {getBookingState(booking, now)}
+                    Status: {booking.status}
                   </p>
                 </div>
               ))
@@ -467,15 +473,23 @@ const handleDeleteReservation = async (booking) => {
           ({pendingBookings.length})
         </h2>
 
-        {loading && <p>Loading reservations...</p>}
+        {requestActionError && (
+          <p role="alert" style={{color:'#b00020'}}>
+            {requestActionError}
+          </p>
+        )}
 
-        {!loading && !error && pendingBookings.length === 0 && (
+        {requestsLoading && <p>Loading booking requests...</p>}
+
+        {requestsError && (
+          <p role="alert" style={{color:'#b00020'}}>{requestsError}</p>
+        )}
+
+        {!requestsLoading && !requestsError && pendingBookings.length === 0 && (
           <p>No new booking requests at the moment.</p>
         )}
 
         {pendingBookings.map((booking) => {
-          const expiry = getHoldExpiry(booking)
-
           return (
             <article
               key={booking.id}
@@ -514,19 +528,45 @@ const handleDeleteReservation = async (booking) => {
                 <strong>Status:</strong> Pending approval
               </p>
 
-              <p>
-                <strong>Hold expires:</strong>{' '}
-                {expiry
-                  ? expiry.toLocaleString('en-ZA', {
-                      dateStyle: 'medium',
-                      timeStyle: 'short'
-                    })
-                  : 'Not recorded'}
-              </p>
+              {booking.notes && (
+                <p>
+                  <strong>Special requests:</strong>{' '}
+                  {booking.notes}
+                </p>
+              )}
 
               <p style={{fontSize: '13px',color: '#785400'}}>
                 Awaiting owner approval.
               </p>
+
+              <div style={{display:'flex',gap:'10px',flexWrap:'wrap',marginTop:'14px'}}>
+                <button
+                  type="button"
+                  onClick={() => handleRequestAction(booking, 'accept')}
+                  disabled={processingRequestId !== null}
+                  style={{
+                    ...styles.button,
+                    background:'#176534',
+                    opacity:processingRequestId !== null ? 0.6 : 1,
+                    cursor:processingRequestId !== null ? 'wait' : 'pointer'
+                  }}
+                >
+                  {processingRequestId === booking.id ? 'Processing...' : 'Accept'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRequestAction(booking, 'decline')}
+                  disabled={processingRequestId !== null}
+                  style={{
+                    ...styles.button,
+                    background:'#b00020',
+                    opacity:processingRequestId !== null ? 0.6 : 1,
+                    cursor:processingRequestId !== null ? 'wait' : 'pointer'
+                  }}
+                >
+                  Decline
+                </button>
+              </div>
             </article>
           )
         })}
@@ -598,8 +638,8 @@ const handleDeleteReservation = async (booking) => {
         color: '#617386',
         textAlign: 'center'
       }}>
-        Pending holds expire after 48 hours when a valid
-        hold expiry has been recorded by the booking backend.
+        Pending requests do not block dates. Only confirmed
+        reservations appear on the calendar.
       </p>
     </main>
   )

@@ -33,3 +33,27 @@ serviceAccountKey.json
 
 # Windows
 Thumbs.db
+
+# Project backups and temporary files
+*.bak
+*.backup
+*.backup.*
+*.before-*.jsx
+*.damaged.txt
+*.before-*.js
+
+# Backup React components
+src/components/*.backup.jsx
+
+# Original cottage photo archives
+public/images/cottage/*.zip
+
+# Firebase emulator temporary data
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+firebase-export/
+.emulator-data/
+
+# Local test artifacts
+coverage/

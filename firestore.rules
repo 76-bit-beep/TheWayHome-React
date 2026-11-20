@@ -1,0 +1,375 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =====================================================
+    // 1. ADMINISTRATOR AUTHENTICATION
+    // =====================================================
+
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.uid == 'qCMUIllRSgRmTucv7Tlqz5PJ3gl2';
+    }
+
+    // =====================================================
+    // 2. VALIDATE BOOKING DATES
+    // =====================================================
+
+    function validBookingDates(checkIn, checkOut) {
+      return checkIn is string
+        && checkOut is string
+        && checkIn.matches('\\d{4}-\\d{2}-\\d{2}')
+        && checkOut.matches('\\d{4}-\\d{2}-\\d{2}')
+        && checkIn < checkOut
+
+        // Parse dates as UTC timestamps.
+        && timestamp.value(checkIn + 'T00:00:00Z')
+          < timestamp.value(checkOut + 'T00:00:00Z')
+
+        // Maximum permitted stay: 30 nights.
+        && timestamp.value(checkOut + 'T00:00:00Z')
+          - timestamp.value(checkIn + 'T00:00:00Z')
+          <= duration.value(30, 'd');
+    }
+
+    // =====================================================
+    // 3. VALIDATE MANUAL BOOKINGS
+    // =====================================================
+
+    function validManualBooking() {
+      let data = request.resource.data;
+
+      return data.keys().hasOnly([
+          'guestName',
+          'email',
+          'phone',
+          'guests',
+          'checkIn',
+          'checkOut',
+          'status',
+          'source',
+          'notes',
+          'createdAt'
+        ])
+        && data.keys().hasAll([
+          'guestName',
+          'guests',
+          'checkIn',
+          'checkOut',
+          'status',
+          'source',
+          'createdAt'
+        ])
+        && data.guestName is string
+        && data.guestName.size() > 0
+        && data.guestName.size() <= 120
+        && data.guests is int
+        && data.guests >= 1
+        && data.guests <= 5
+
+        // Date validation and 30-night maximum.
+        && validBookingDates(
+          data.checkIn,
+          data.checkOut
+        )
+
+        && data.status == 'confirmed'
+        && data.source == 'manual'
+        && data.createdAt == request.time
+        && (!('email' in data)
+          || (data.email is string && data.email.size() <= 254))
+        && (!('phone' in data)
+          || (data.phone is string && data.phone.size() <= 40))
+        && (!('notes' in data)
+          || (data.notes is string && data.notes.size() <= 2000));
+    }
+// =====================================================
+// VALIDATE APPROVED CUSTOMER BOOKINGS
+// =====================================================
+
+function validApprovedBooking(bookingId) {
+  let data = request.resource.data;
+
+  return isAdmin()
+    && data.keys().hasOnly([
+      'guestName',
+      'email',
+      'phone',
+      'guests',
+      'checkIn',
+      'checkOut',
+      'notes',
+      'status',
+      'source',
+      'requestId',
+      'createdAt'
+    ])
+    && data.keys().hasAll([
+      'guestName',
+      'email',
+      'phone',
+      'guests',
+      'checkIn',
+      'checkOut',
+      'notes',
+      'status',
+      'source',
+      'requestId',
+      'createdAt'
+    ])
+    && data.source == 'request'
+    && data.status == 'confirmed'
+    && data.createdAt == request.time
+    && data.requestId is string
+    && data.requestId.size() > 0
+    && validBookingDates(data.checkIn, data.checkOut)
+    && data.guests is int
+    && data.guests >= 1
+    && data.guests <= 5
+    && data.guestName is string
+    && data.guestName.size() > 0
+    && data.guestName.size() <= 100
+    && data.email is string
+    && data.email.size() > 0
+    && data.email.size() <= 254
+    && data.phone is string
+    && data.phone.size() > 0
+    && data.phone.size() <= 30
+    && data.notes is string
+    && data.notes.size() <= 1000
+
+    // The corresponding customer request must exist.
+    && exists(
+      /databases/$(database)/documents/bookingRequests/$(data.requestId)
+    )
+
+    // The original request must still be pending.
+    && get(
+      /databases/$(database)/documents/bookingRequests/$(data.requestId)
+    ).data.status == 'pending'
+
+    // The same transaction must accept the request
+    // and link it to this exact booking.
+    && getAfter(
+      /databases/$(database)/documents/bookingRequests/$(data.requestId)
+    ).data.status == 'accepted'
+    && getAfter(
+      /databases/$(database)/documents/bookingRequests/$(data.requestId)
+    ).data.bookingId == bookingId
+
+    // Booking details must match the customer request.
+    && data.guestName == get(
+      /databases/$(database)/documents/bookingRequests/$(data.requestId)
+    ).data.guestName
+    && data.email == get(
+      /databases/$(database)/documents/bookingRequests/$(data.requestId)
+    ).data.email
+    && data.phone == get(
+      /databases/$(database)/documents/bookingRequests/$(data.requestId)
+    ).data.phone
+    && data.guests == get(
+      /databases/$(database)/documents/bookingRequests/$(data.requestId)
+    ).data.guests
+    && data.checkIn == get(
+      /databases/$(database)/documents/bookingRequests/$(data.requestId)
+    ).data.checkIn
+    && data.checkOut == get(
+      /databases/$(database)/documents/bookingRequests/$(data.requestId)
+    ).data.checkOut
+    && data.notes == get(
+      /databases/$(database)/documents/bookingRequests/$(data.requestId)
+    ).data.notes;
+}
+    // =====================================================
+    // 4. VALIDATE PUBLIC AVAILABILITY
+    // =====================================================
+
+    function validPublicAvailability(nightId) {
+      let data = request.resource.data;
+
+      return data.keys().hasOnly([
+          'bookingId',
+          'status'
+        ])
+        && data.keys().hasAll([
+          'bookingId',
+          'status'
+        ])
+        && data.bookingId is string
+        && data.bookingId.size() > 0
+        && data.status == 'confirmed'
+        && nightId.matches('\\d{4}-\\d{2}-\\d{2}')
+        && existsAfter(
+          /databases/$(database)/documents/bookings/$(data.bookingId)
+        )
+        && getAfter(
+          /databases/$(database)/documents/bookings/$(data.bookingId)
+        ).data.status == 'confirmed'
+        && getAfter(
+          /databases/$(database)/documents/bookings/$(data.bookingId)
+        ).data.checkIn <= nightId
+        && nightId < getAfter(
+          /databases/$(database)/documents/bookings/$(data.bookingId)
+        ).data.checkOut;
+    }
+
+
+    // =====================================================
+    // 5. PRIVATE BOOKINGS
+    // =====================================================
+
+    match /bookings/{bookingId} {
+
+      // Only the administrator can read private bookings.
+      allow read: if isAdmin();
+
+      // Allow valid manual reservations or
+      // approved customer booking requests.
+      allow create: if isAdmin()
+        && (
+          validManualBooking()
+          || validApprovedBooking(bookingId)
+        );
+
+      // Existing bookings cannot be modified.
+      allow update: if false;
+
+      // Administrator can delete bookings.
+      // Full orphan-prevention remains pending.
+      allow delete: if isAdmin();
+    }
+
+    // =====================================================
+    // 6. PUBLIC CALENDAR AVAILABILITY
+    // =====================================================
+
+    match /publicAvailability/{nightId} {
+
+      // Public calendar is readable by everyone.
+      allow read: if true;
+
+      // Blocked dates must reference a confirmed booking.
+      allow create: if isAdmin()
+        && validPublicAvailability(nightId);
+
+      // Existing blocked dates cannot be modified.
+      allow update: if false;
+
+      // A blocked date can only be released when
+      // its associated booking is also absent
+      // after the atomic operation.
+      allow delete: if isAdmin()
+        && resource.data.bookingId is string
+        && !existsAfter(
+          /databases/$(database)/documents/bookings/$(resource.data.bookingId)
+        );
+    }
+
+// =====================================================
+// 7. CUSTOMER BOOKING REQUESTS
+// =====================================================
+
+function validBookingRequest() {
+  let data = request.resource.data;
+
+  return data.keys().hasOnly([
+      'guestName',
+      'email',
+      'phone',
+      'guests',
+      'checkIn',
+      'checkOut',
+      'notes',
+      'status',
+      'createdAt'
+    ])
+    && data.keys().hasAll([
+      'guestName',
+      'email',
+      'phone',
+      'guests',
+      'checkIn',
+      'checkOut',
+      'notes',
+      'status',
+      'createdAt'
+    ])
+    && data.guestName is string
+    && data.guestName.size() > 0
+    && data.guestName.size() <= 100
+    && data.email is string
+    && data.email.size() > 0
+    && data.email.size() <= 254
+    && data.phone is string
+    && data.phone.size() > 0
+    && data.phone.size() <= 30
+    && data.notes is string
+    && data.notes.size() <= 1000
+    && data.guests is int
+    && data.guests >= 1
+    && data.guests <= 5
+    && validBookingDates(data.checkIn, data.checkOut)
+    && data.status == 'pending'
+    && data.createdAt == request.time;
+}
+
+match /bookingRequests/{requestId} {
+
+  // Only the administrator can view customer details.
+  allow read: if isAdmin();
+
+  // Customers can submit new pending requests.
+  allow create: if validBookingRequest();
+
+
+  // Only the administrator can process pending requests.
+  allow update: if isAdmin()
+    && resource.data.status == 'pending'
+    && (
+      // Decline without creating a reservation.
+      (
+        request.resource.data.diff(resource.data)
+          .affectedKeys().hasOnly(['status'])
+        && request.resource.data.status == 'declined'
+      )
+
+      ||
+
+      // Accept only when a matching confirmed booking
+      // exists after the atomic transaction.
+      (
+        request.resource.data.diff(resource.data)
+          .affectedKeys().hasOnly(['status', 'bookingId'])
+        && request.resource.data.status == 'accepted'
+        && request.resource.data.bookingId is string
+        && request.resource.data.bookingId.size() > 0
+        && existsAfter(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        )
+        && getAfter(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        ).data.status == 'confirmed'
+        && getAfter(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        ).data.source == 'request'
+        && getAfter(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        ).data.requestId == requestId
+      )
+    );
+
+
+  // Customers cannot delete booking requests.
+  allow delete: if false;
+}
+    // =====================================================
+    // 7. DENY ALL OTHER ACCESS
+    // =====================================================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
