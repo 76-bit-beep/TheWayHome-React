@@ -2,7 +2,7 @@ import react from '@vitejs/plugin-react'
 import {defineConfig} from 'vite'
 
 // Vite configuration for The Way Home
-export default defineConfig({
+export default defineConfig(({mode}) => ({
   plugins: [react()],
-  base: '/',
-})
+  base: mode === 'github' ? '/TheWayHome-React/' : '/',
+}))
