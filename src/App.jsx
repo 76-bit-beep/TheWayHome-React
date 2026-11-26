@@ -257,7 +257,11 @@ function App() {
           aria-label="The Way Home homepage"
           onClick={closeMenu}
         >
-          <span className="brand-leaf">❧</span>
+          <img
+  className="brand-leaf"
+  src={`${base}images/figtree/figtreelogo.png`}
+  alt=""
+/>
 
           <span>
             <strong>The Way Home</strong>

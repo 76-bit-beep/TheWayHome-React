@@ -2,7 +2,13 @@
 .site{overflow:hidden;background:linear-gradient(100deg,#eff9ff,#fff 48%,#e8f7ff);color:#06295f}
 .site-header{min-height:70px;display:flex;align-items:center;gap:24px;padding:6px 2%;background:linear-gradient(#fff,#f3fbff);position:relative;z-index:3;box-shadow:0 2px 8px #1c7fc327}
 .brand{display:flex;align-items:center;gap:8px;flex-shrink:0;text-decoration:none;color:#062e68}
-.brand-leaf{font-size:58px;color:#608d19;line-height:.7}
+.brand-leaf{
+  width:58px;
+  height:58px;
+  object-fit:contain;
+  display:block;
+  flex-shrink:0;
+}
 .brand strong{font:700 clamp(24px,2.6vw,42px) Georgia,serif;white-space:nowrap}
 .brand-swish{display:block;height:10px;border-top:4px solid #0062a4;border-radius:60% 40%;transform:rotate(-2deg);margin-top:2px}
 .header-tagline{font-size:clamp(9px,.9vw,13px);font-weight:700;white-space:nowrap;flex:1;text-align:center}
@@ -104,7 +110,10 @@
 
 @media(max-width:750px){
 .site-header{min-height:66px;padding:9px 4%}
-.brand-leaf{font-size:42px}
+.brand-leaf{
+  width:42px;
+  height:42px;
+}
 .brand strong{font-size:27px}
 .menu-toggle{display:block;border:0;background:#07558e;color:white;border-radius:8px;padding:8px 12px;font-size:22px}
 .site-header nav{display:none;position:absolute;top:100%;left:0;right:0;background:white;box-shadow:0 7px 9px #0002;padding:12px;flex-direction:column;align-items:stretch;gap:2px}
