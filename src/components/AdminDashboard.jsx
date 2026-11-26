@@ -1,3 +1,4 @@
+﻿import './AdminDashboard.css'
 import {useEffect, useMemo, useState} from 'react'
 import {collection, doc, onSnapshot, updateDoc} from 'firebase/firestore'
 import {
@@ -111,7 +112,65 @@ const overlapsDate = (booking, date) => {
   return booking.checkIn <= date && date < booking.checkOut
 }
 
+function BookingRow({booking, expanded, onToggle, children}) {
+  const price = booking.agreedTotal ?? booking.quotedTotal
+  const status = booking.status
+
+  return (
+    <article className="booking-item">
+      <button
+        type="button"
+        className="booking-summary"
+        onClick={onToggle}
+        aria-expanded={expanded}
+      >
+        <span className="booking-name">
+          {booking.guestName || 'Guest'}
+        </span>
+
+        <span>
+          {formatDate(booking.checkIn)} - {formatDate(booking.checkOut)}
+        </span>
+
+        <span>
+          {booking.guests ?? '-'} guests
+        </span>
+
+        <span className="booking-price">
+          {Number.isInteger(price)
+            ? `R ${price.toLocaleString('en-ZA')}`
+            : 'No price'}
+        </span>
+
+        <span className={`booking-status ${status}`}>
+          {status.charAt(0).toUpperCase() + status.slice(1)}
+        </span>
+
+        <span
+          aria-hidden="true"
+          className={`booking-chevron ${expanded ? 'expanded' : ''}`}
+        >
+          &#9662;
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="booking-details">
+          {children}
+        </div>
+      )}
+    </article>
+  )
+}
+
 function AdminDashboard() {
+  const [expandedBooking, setExpandedBooking] = useState(null)
+  const [bookingFilter, setBookingFilter] = useState('all')
+
+  const toggleBooking = (id) => {
+    setExpandedBooking(current => current === id ? null : id)
+  }
+
   const [bookings, setBookings] = useState([])
   const [bookingRequests, setBookingRequests] = useState([])
   const [error, setError] = useState('')
@@ -275,10 +334,10 @@ function AdminDashboard() {
 
 const handleDeleteReservation = async (booking) => {
   const confirmed = window.confirm(
-    `Permanently delete the reservation for ${booking.guestName || 'Guest'}?\n\n` +
+    `Cancel the reservation for ${booking.guestName || 'Guest'}?\n\n` +
     `Arrival: ${formatDate(booking.checkIn)}\n` +
     `Departure: ${formatDate(booking.checkOut)}\n\n` +
-    'This action cannot be undone.'
+    'This will permanently remove the reservation and release its reserved dates. This action cannot be undone.'
   )
 
   if (!confirmed) return
@@ -290,7 +349,7 @@ const handleDeleteReservation = async (booking) => {
     await deleteConfirmedReservation(booking.id)
   } catch (err) {
     console.error('Failed to delete reservation:', err)
-    setError('Unable to delete reservation. Check Firebase permissions.')
+    setError('Unable to cancel reservation. Check Firebase permissions.')
   } finally {
     setDeletingId(null)
   }
@@ -551,7 +610,7 @@ const handleDeleteReservation = async (booking) => {
 
                   <p>
                     {formatDate(booking.checkIn)}
-                    {' – '}
+                    {' â€“ '}
                     {formatDate(booking.checkOut)}
                   </p>
 
@@ -566,8 +625,35 @@ const handleDeleteReservation = async (booking) => {
       </section>
 
       <section style={styles.card}>
-        <h2>
-          New Booking Requests
+  <h2>Booking Management</h2>
+
+  <div className="booking-toolbar">
+    {[
+      ['all', 'All', pendingBookings.length + activeBookings.length],
+      ['pending', 'Pending', pendingBookings.length],
+      ['confirmed', 'Confirmed', activeBookings.length]
+    ].map(([value, label, count]) => (
+      <button
+        key={value}
+        type="button"
+        className={`booking-filter ${bookingFilter === value ? 'active' : ''}`}
+        aria-pressed={bookingFilter === value}
+        onClick={() => {
+          setBookingFilter(value)
+          setExpandedBooking(null)
+        }}
+      >
+        {label} ({count})
+      </button>
+    ))}
+  </div>
+</section>
+
+<section style={{
+  ...styles.card,
+  display: bookingFilter === 'confirmed' ? 'none' : undefined
+}}>
+  <h2>New Booking Requests
           {' '}
           ({pendingBookings.length})
         </h2>
@@ -590,10 +676,12 @@ const handleDeleteReservation = async (booking) => {
 
         {pendingBookings.map((booking) => {
           return (
-            <article
-              key={booking.id}
-              style={styles.notification}
-            >
+            <BookingRow
+  key={`pending-${booking.id}`}
+  booking={booking}
+  expanded={expandedBooking === `pending-${booking.id}`}
+  onToggle={() => toggleBooking(`pending-${booking.id}`)}
+>
               <h3 style={{marginTop: 0}}>
                 {booking.guestName || 'Guest'}
               </h3>
@@ -675,7 +763,7 @@ const handleDeleteReservation = async (booking) => {
               }}
             >
               <span>
-                {formatDate(night?.date)} —{' '}
+                {formatDate(night?.date)} â€”{' '}
                 {typeof night?.season === 'string'
                   ? night.season
                   : 'Unknown rate'}
@@ -867,13 +955,16 @@ const handleDeleteReservation = async (booking) => {
                   Decline
                 </button>
               </div>
-            </article>
+            </BookingRow>
           )
         })}
       </section>
 
-      <section style={styles.card}>
-        <h2>Confirmed Reservations</h2>
+      <section style={{
+  ...styles.card,
+  display: bookingFilter === 'pending' ? 'none' : undefined
+}}>
+  <h2>Confirmed Reservations ({activeBookings.length})</h2>
 
         {loading && <p>Loading reservations...</p>}
 
@@ -889,26 +980,51 @@ const handleDeleteReservation = async (booking) => {
             (a.checkIn || '').localeCompare(b.checkIn || '')
           ))
           .map((booking) => (
-            <article
-              key={booking.id}
-              style={{
-                padding: '12px',
-                borderBottom: '1px solid #d5e5ef'
-              }}
-            >
+            <BookingRow
+  key={`confirmed-${booking.id}`}
+  booking={booking}
+  expanded={expandedBooking === `confirmed-${booking.id}`}
+  onToggle={() => toggleBooking(`confirmed-${booking.id}`)}
+>
               <strong>
                 {booking.guestName || 'Guest'}
               </strong>
 
               <p>
                 {formatDate(booking.checkIn)}
-                {' – '}
+                {' â€“ '}
                 {formatDate(booking.checkOut)}
               </p>
 
               <p>
                 Guests: {booking.guests ?? 'Not specified'}
               </p>
+<div className="booking-details-grid">
+  <p>
+    <strong>Email:</strong>{' '}
+    {booking.email || 'Not provided'}
+  </p>
+
+  <p>
+    <strong>Telephone:</strong>{' '}
+    {booking.phone || 'Not provided'}
+  </p>
+
+  <p>
+    <strong>Source:</strong>{' '}
+    {booking.source === 'manual'
+      ? 'Manual reservation'
+      : booking.source === 'request'
+        ? 'Website request'
+        : 'Not specified'}
+  </p>
+
+  <p>
+    <strong>Special requests:</strong>{' '}
+    {booking.notes || 'None'}
+  </p>
+</div>
+
 {/* CONFIRMED RESERVATION PRICE */}
 
 <div style={{
@@ -954,11 +1070,11 @@ const handleDeleteReservation = async (booking) => {
                 }}
                 >
                 {deletingId === booking.id
-                    ? 'Deleting...'
-                    : 'Delete Reservation'}
+                    ? 'Cancelling...'
+                    : 'Cancel Booking'}
                 </button>
 
-            </article>
+            </BookingRow>
           ))}
       </section>
 
@@ -974,11 +1090,11 @@ const handleDeleteReservation = async (booking) => {
       <section style={{...styles.card, textAlign:'center', borderColor:'#c6cdb4', color:'#455438'}}>
         <img
           src={`${import.meta.env.BASE_URL}images/figtree/figtree-banner.png`}
-          alt="Figtree Craft Stall — handcrafted items, gifts and local treats"
+          alt="Figtree Craft Stall â€” handcrafted items, gifts and local treats"
           loading="lazy"
           style={{display:'block', width:'100%', maxWidth:'1000px', height:'auto', margin:'0 auto', borderRadius:'8px'}}
         />
-        <h3 style={{marginBottom:'8px'}}>Figtree Craft Stall — Coming Soon</h3>
+        <h3 style={{marginBottom:'8px'}}>Figtree Craft Stall â€” Coming Soon</h3>
         <p style={{marginBottom:0}}>A dedicated area for managing the Figtree Craft Stall will be available here in the future.</p>
       </section>
 
@@ -987,3 +1103,7 @@ const handleDeleteReservation = async (booking) => {
 }
 
 export default AdminDashboard
+
+
+
+
