@@ -2,9 +2,14 @@
 import {useEffect, useState} from 'react'
 import {addDoc, collection, getDocsFromServer, onSnapshot, serverTimestamp} from 'firebase/firestore'
 import {db} from '../firebase.js'
+import {
+  DEFAULT_PRICING,
+  loadPricing,
+  calculateBookingPrice
+} from '../utils/pricing.js'
 import './BookingModal.css'
 
-const PRICE_PER_PERSON_PER_NIGHT = 400
+
 
 function formatDate(date) {
   if (!date) return 'Select a date'
@@ -66,6 +71,43 @@ function BookingModal({isOpen, onClose}) {
   const [blockedNights, setBlockedNights] = useState(new Set())
   const [availabilityLoading, setAvailabilityLoading] = useState(true)
   const [availabilityError, setAvailabilityError] = useState('')
+  const [pricingSettings, setPricingSettings] = useState(DEFAULT_PRICING)
+  const [seasonalPricing, setSeasonalPricing] = useState([])
+  const [pricingLoading, setPricingLoading] = useState(true)
+  const [pricingError, setPricingError] = useState('')
+
+  useEffect(() => {
+  if (!isOpen) return
+
+  let active = true
+
+  setPricingLoading(true)
+  setPricingError('')
+  setPreview(false)
+
+  loadPricing()
+    .then(({settings, seasons}) => {
+      if (!active) return
+
+      setPricingSettings(settings)
+      setSeasonalPricing(seasons)
+    })
+    .catch((err) => {
+      if (!active) return
+
+      console.error('Pricing load failed:', err)
+      setPricingError(
+        'Unable to load current pricing. Please try again.'
+      )
+    })
+    .finally(() => {
+      if (active) setPricingLoading(false)
+    })
+
+  return () => {
+    active = false
+  }
+}, [isOpen])
 
   useEffect(() => {
     if (!isOpen) return
@@ -152,7 +194,25 @@ function BookingModal({isOpen, onClose}) {
       )
     : 0
 
-  const total = nights * guests * PRICE_PER_PERSON_PER_NIGHT
+  let bookingPrice = null
+let calculationError = ''
+
+if (checkIn && checkOut && !pricingLoading && !pricingError) {
+  try {
+    bookingPrice = calculateBookingPrice(
+      dateKey(checkIn),
+      dateKey(checkOut),
+      guests,
+      pricingSettings,
+      seasonalPricing
+    )
+  } catch (err) {
+    calculationError = err.message
+  }
+}
+
+const total = bookingPrice?.total ?? 0
+const minimumStay = bookingPrice?.minimumStay ?? 1
 
   const resetPreview = () => {
     setPreview(false)
@@ -210,7 +270,27 @@ function BookingModal({isOpen, onClose}) {
     event.preventDefault()
     setError('')
     setPreview(false)
+if (pricingLoading || pricingError) {
+  setError('Current pricing is unavailable. Please try again shortly.')
+  return
+}
 
+if (calculationError) {
+  setError(calculationError)
+  return
+}
+
+if (!bookingPrice) {
+  setError('Please select valid booking dates.')
+  return
+}
+
+if (!bookingPrice.meetsMinimumStay) {
+  setError(
+    `Your selected dates require a minimum stay of ${minimumStay} nights.`
+  )
+  return
+}
     if (availabilityLoading || availabilityError) {
       setError('Availability is not ready. Please try again shortly.')
       return
@@ -247,7 +327,17 @@ function BookingModal({isOpen, onClose}) {
 
   const handleSubmitBooking = async () => {
     if (!preview || submitting || submitted) return
-
+    if (
+      pricingLoading ||
+      pricingError ||
+      calculationError ||
+      !bookingPrice ||
+      !bookingPrice.meetsMinimumStay
+    ) {
+      setPreview(false)
+      setError('Please review your booking dates and pricing.')
+      return
+    }
     if (
       !checkIn ||
       !checkOut ||
@@ -282,17 +372,60 @@ function BookingModal({isOpen, onClose}) {
         return
       }
 
-      await addDoc(collection(db, 'bookingRequests'), {
-        guestName:guestName.trim(),
-        email:email.trim(),
-        phone:phone.trim(),
-        guests:Number(guests),
-        checkIn:dateKey(checkIn),
-        checkOut:dateKey(checkOut),
-        notes:message.trim(),
-        status:'pending',
-        createdAt:serverTimestamp()
-      })
+      // Retrieve the latest pricing before submitting.
+const latestPricing = await loadPricing()
+
+const latestBookingPrice = calculateBookingPrice(
+  dateKey(checkIn),
+  dateKey(checkOut),
+  guests,
+  latestPricing.settings,
+  latestPricing.seasons
+)
+
+setPricingSettings(latestPricing.settings)
+setSeasonalPricing(latestPricing.seasons)
+
+if (!latestBookingPrice.meetsMinimumStay) {
+  setPreview(false)
+  setError(
+    `These dates now require a minimum stay of ${latestBookingPrice.minimumStay} nights.`
+  )
+  return
+}
+
+if (
+  latestBookingPrice.total !== bookingPrice.total ||
+  latestBookingPrice.minimumStay !== bookingPrice.minimumStay ||
+  JSON.stringify(latestBookingPrice.breakdown) !==
+    JSON.stringify(bookingPrice.breakdown)
+) {
+  setPreview(false)
+  setError(
+    'Pricing has changed. Please review the updated price before submitting.'
+  )
+  return
+}
+
+await addDoc(collection(db, 'bookingRequests'), {
+  guestName:guestName.trim(),
+  email:email.trim(),
+  phone:phone.trim(),
+  guests:Number(guests),
+  checkIn:dateKey(checkIn),
+  checkOut:dateKey(checkOut),
+  notes:message.trim(),
+
+  // Booking price at the time of submission
+  quotedTotal:latestBookingPrice.total,
+  currency:latestBookingPrice.currency,
+  nights:latestBookingPrice.nights,
+  minimumStay:latestBookingPrice.minimumStay,
+  priceBreakdown:latestBookingPrice.breakdown,
+
+  status:'pending',
+  createdAt:serverTimestamp()
+})
 
       setSubmitted(true)
       setPreview(false)
@@ -508,27 +641,91 @@ function BookingModal({isOpen, onClose}) {
 
         {/* PRICE SUMMARY */}
 
-        <div className="booking-price">
-          <p>
-            Price per person per night:
-            <strong> R400</strong>
-          </p>
+<div className="booking-price">
 
-          <p>
-            Number of guests:
-            <strong> {guests}</strong>
-          </p>
+  {pricingLoading && (
+    <p role="status">Loading current pricing...</p>
+  )}
 
-          <p>
-            Number of nights:
-            <strong> {nights}</strong>
-          </p>
+  {pricingError && (
+    <p role="alert" style={{color: '#b00020'}}>
+      {pricingError}
+    </p>
+  )}
 
-          <div className="booking-total">
-            <span>Estimated total</span>
-            <strong>R {total.toLocaleString('en-ZA')}</strong>
-          </div>
+  {calculationError && (
+    <p role="alert" style={{color: '#b00020'}}>
+      {calculationError}
+    </p>
+  )}
+
+  {!pricingLoading && !pricingError && (
+    <p>
+      Standard rate per person per night:
+      <strong> R{pricingSettings.nightlyRate}</strong>
+    </p>
+  )}
+
+  <p>
+    Number of guests:
+    <strong> {guests}</strong>
+  </p>
+
+  <p>
+    Number of nights:
+    <strong> {nights}</strong>
+  </p>
+
+  {bookingPrice && (
+    <>
+      <h4>Nightly Price Breakdown</h4>
+
+      {bookingPrice.breakdown.map((night) => (
+        <div
+          key={night.date}
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: '10px',
+            padding: '8px 0',
+            borderBottom: '1px solid #ddd',
+            fontSize: '13px'
+          }}
+        >
+          <span>
+            {night.date} — {night.season}
+          </span>
+
+          <strong>
+            R{night.total.toLocaleString('en-ZA')}
+          </strong>
         </div>
+      ))}
+
+      <p>
+        Minimum stay:
+        <strong> {minimumStay} night(s)</strong>
+      </p>
+
+      {!bookingPrice.meetsMinimumStay && (
+        <p role="alert" style={{color: '#b00020'}}>
+          Your selected dates require a minimum stay
+          of {minimumStay} nights.
+        </p>
+      )}
+    </>
+  )}
+
+  <div className="booking-total">
+    <span>Estimated total</span>
+    <strong>
+      {bookingPrice
+        ? `R ${total.toLocaleString('en-ZA')}`
+        : '—'}
+    </strong>
+  </div>
+
+</div>
 
         {/* GUEST DETAILS */}
 
@@ -745,13 +942,13 @@ function BookingModal({isOpen, onClose}) {
 
         {/* BOOKING DISCLAIMER */}
 
-        <p className="booking-disclaimer">
-          Prices are estimated at R400 per person per night.
-          Availability and final pricing must be confirmed
-          by the owners. Submitting a booking request does
-          not guarantee a reservation. No automatic email
-          or WhatsApp confirmation is sent.
-        </p>
+              <p className="booking-disclaimer">
+        Prices are calculated using the current standard
+        and seasonal rates. Availability and final pricing
+        must be confirmed by the owners. Submitting a
+        booking request does not guarantee a reservation.
+        No automatic email or WhatsApp confirmation is sent.
+      </p>
       </div>
     </div>
   )

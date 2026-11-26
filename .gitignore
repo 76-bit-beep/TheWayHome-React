@@ -59,3 +59,5 @@ firebase-export/
 coverage/
 # Firebase deployment cache
 .firebase/
+
+/firebase-export-*/

@@ -1,10 +1,14 @@
-
 import {useEffect, useMemo, useState} from 'react'
 import {collection, doc, onSnapshot, updateDoc} from 'firebase/firestore'
-import {acceptBookingRequest, deleteConfirmedReservation} from '../utils/availabilityFirestore'
+import {
+  acceptBookingRequest,
+  deleteConfirmedReservation
+} from '../utils/availabilityFirestore'
 import {signOut} from 'firebase/auth'
 import {auth, db} from '../firebase'
 import ManualReservation from './ManualReservation.jsx'
+import PricingManagement from './PricingManagement.jsx'
+import {DEFAULT_PRICING, calculateBookingPrice} from '../utils/pricing.js'
 
 const styles = {
   page: {
@@ -119,6 +123,10 @@ function AdminDashboard() {
   const [deletingId, setDeletingId] = useState(null)
   const [processingRequestId, setProcessingRequestId] = useState(null)
   const [requestActionError, setRequestActionError] = useState('')
+  const [currentSettings, setCurrentSettings] = useState(null)
+  const [currentSeasons, setCurrentSeasons] = useState(null)
+  const [pricingErrors, setPricingErrors] = useState({})
+  const [agreedPrices, setAgreedPrices] = useState({})
   const [showManualReservation, setShowManualReservation] = useState(false)
 
   useEffect(() => {
@@ -203,8 +211,60 @@ function AdminDashboard() {
       })
   }, [bookingRequests])
 
+  // Subscribe once to pricing, not once per booking.
+  useEffect(() => {
+    const setPricingError = (key, message) => {
+      setPricingErrors(current => ({...current, [key]: message}))
+    }
+    const stopSettings = onSnapshot(
+      doc(db, 'pricingSettings', 'default'),
+      {includeMetadataChanges: true},
+      snapshot => {
+        setCurrentSettings(snapshot.metadata.fromCache ? null :
+          snapshot.exists() ? snapshot.data() : DEFAULT_PRICING)
+        setPricingError('settings', '')
+      },
+      () => {
+        setCurrentSettings(null)
+        setPricingError('settings', 'Current standard pricing unavailable.')
+      }
+    )
+    const stopSeasons = onSnapshot(
+      collection(db, 'seasonalPricing'),
+      {includeMetadataChanges: true},
+      snapshot => {
+        setCurrentSeasons(snapshot.metadata.fromCache ? null :
+          snapshot.docs.map(item => ({...item.data(), id: item.id})))
+        setPricingError('seasons', '')
+      },
+      () => {
+        setCurrentSeasons(null)
+        setPricingError('seasons', 'Current seasonal pricing unavailable.')
+      }
+    )
+    return () => { stopSettings(); stopSeasons() }
+  }, [])
+
+  const verifiedPrices = useMemo(() => {
+    if (!currentSettings || !currentSeasons) return {}
+    return Object.fromEntries(pendingBookings.map(booking => {
+      try {
+        const price = calculateBookingPrice(booking.checkIn, booking.checkOut,
+          booking.guests, currentSettings, currentSeasons)
+        const originalQuote = Number.isInteger(booking.quotedTotal) &&
+          booking.quotedTotal > 0 && booking.currency === 'ZAR'
+          ? booking.quotedTotal : null
+        return [booking.id, {...price, currentTotal: price.total, originalQuote,
+          priceChanged: originalQuote !== price.total,
+          difference: originalQuote === null ? null : price.total - originalQuote}]
+      } catch (err) {
+        return [booking.id, {error: err.message}]
+      }
+    }))
+  }, [pendingBookings, currentSettings, currentSeasons])
+
   const getBookingsForDate = (date) => {
-    return activeBookings.filter((booking) => {
+    return [...activeBookings, ...pendingBookings].filter((booking) => {
       return overlapsDate(booking, date)
     })
   }
@@ -255,8 +315,36 @@ const handleDeleteReservation = async (booking) => {
 
     try {
       if (isAccept) {
-        await acceptBookingRequest(booking.id)
-      } else {
+  const rawPrice =
+    agreedPrices[booking.id] ??
+    booking.quotedTotal ??
+    ''
+
+  const agreedTotal =
+    String(rawPrice).trim() === ''
+      ? null
+      : Number(rawPrice)
+
+  if (
+    agreedTotal !== null &&
+    (
+      !Number.isInteger(agreedTotal) ||
+      agreedTotal < 0 ||
+      agreedTotal > 15000000
+    )
+  ) {
+    setRequestActionError(
+      'Please enter a valid agreed booking price.'
+    )
+    return
+  }
+
+  await acceptBookingRequest(
+    booking.id,
+    db,
+    agreedTotal
+  )
+} else {
         await updateDoc(doc(db, 'bookingRequests', booking.id), {
           status:'declined'
         })
@@ -391,7 +479,10 @@ const handleDeleteReservation = async (booking) => {
               return booking.status === 'confirmed'
             })
 
-            const background = confirmed ? '#c9f0d3' : '#f2f8fc'
+            const pending = reservations.some(booking => booking.status === 'pending')
+            const unknown = loading || requestsLoading || Boolean(error || requestsError)
+            const background = confirmed ? '#fecaca' : pending ? '#fde68a' : unknown ? '#e5e7eb' : '#f2f8fc'
+            const dayStatus = confirmed && pending ? 'confirmed reservation and pending request' : confirmed ? 'confirmed reservation' : pending ? 'pending request' : unknown ? 'availability unknown' : 'no reservation'
 
             return (
               <button
@@ -400,9 +491,7 @@ const handleDeleteReservation = async (booking) => {
                 onClick={() => setSelectedDate(date)}
                 aria-pressed={selectedDate === date}
                 aria-label={`${formatDate(date)}, ${
-                  confirmed
-                    ? 'confirmed reservation'
-                    : 'no reservation'
+                  dayStatus
                 }`}
                 style={{
                   ...styles.day,
@@ -410,12 +499,13 @@ const handleDeleteReservation = async (booking) => {
                   border: selectedDate === date
                     ? '2px solid #082f6d'
                     : styles.day.border,
-                  fontWeight: confirmed
+                  fontWeight: confirmed || pending
                     ? 'bold'
                     : 'normal'
                 }}
               >
                 {day}
+                {confirmed && pending && <span style={{display:'block', fontSize:'11px'}}>+ Pending</span>}
               </button>
             )
           })}
@@ -428,8 +518,17 @@ const handleDeleteReservation = async (booking) => {
           marginTop: '20px',
           fontSize: '14px'
         }}>
-          <span>🟢 Confirmed</span>
-          <span>⚪ No reservation</span>
+          {[
+            ['#fecaca', 'Confirmed'],
+            ['#fde68a', 'Pending'],
+            ['#f2f8fc', 'No reservation'],
+            ['#e5e7eb', 'Unknown']
+          ].map(([color, label]) => (
+            <span key={label} style={{display:'inline-flex', alignItems:'center', gap:'6px'}}>
+              <span aria-hidden="true" style={{width:'14px', height:'14px', background:color, border:'1px solid #b7c8d5', borderRadius:'3px'}} />
+              {label}
+            </span>
+          ))}
         </div>
 
         {selectedDate && (
@@ -442,10 +541,10 @@ const handleDeleteReservation = async (booking) => {
             <h3>{formatDate(selectedDate)}</h3>
 
             {selectedBookings.length === 0 ? (
-              <p>No active reservations for this date.</p>
+              <p>{loading || requestsLoading || error || requestsError ? 'Calendar data is not fully available.' : 'No reservations or pending requests for this date.'}</p>
             ) : (
               selectedBookings.map((booking) => (
-                <div key={booking.id}>
+                <div key={`${booking.status}-${booking.id}`}>
                   <strong>
                     {booking.guestName || 'Guest'}
                   </strong>
@@ -457,7 +556,7 @@ const handleDeleteReservation = async (booking) => {
                   </p>
 
                   <p>
-                    Status: {booking.status}
+                    Status: {booking.status === 'confirmed' ? 'Confirmed' : 'Pending approval'}
                   </p>
                 </div>
               ))
@@ -535,6 +634,207 @@ const handleDeleteReservation = async (booking) => {
                 </p>
               )}
 
+{/* BOOKING PRICE DETAILS */}
+
+<div style={{
+  background: '#eef7fd',
+  border: '1px solid #b7ddf6',
+  borderRadius: '8px',
+  padding: '15px',
+  marginTop: '15px'
+}}>
+  <h4 style={{marginTop: 0}}>
+    Booking Price Details
+  </h4>
+
+  {Number.isInteger(booking.quotedTotal) &&
+   booking.quotedTotal > 0 ? (
+    <>
+      <p>
+        <strong>Number of nights:</strong>{' '}
+        {booking.nights}
+      </p>
+
+      <p>
+        <strong>Minimum stay:</strong>{' '}
+        {booking.minimumStay} night(s)
+      </p>
+
+      {Array.isArray(booking.priceBreakdown) && (
+        <div>
+          {booking.priceBreakdown.map((night, index) => (
+            <div
+              key={index}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: '10px',
+                padding: '8px 0',
+                borderBottom: '1px solid #d5e5ef',
+                fontSize: '13px'
+              }}
+            >
+              <span>
+                {formatDate(night?.date)} —{' '}
+                {typeof night?.season === 'string'
+                  ? night.season
+                  : 'Unknown rate'}
+              </span>
+
+              <strong>
+                {Number.isFinite(night?.total)
+                  ? `R ${night.total.toLocaleString('en-ZA')}`
+                  : 'Invalid amount'}
+              </strong>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h3 style={{color: '#176534'}}>
+        Quoted total: R{' '}
+        {booking.quotedTotal.toLocaleString('en-ZA')}
+      </h3>
+
+      <p style={{fontSize: '12px', color: '#785400'}}>
+        Original customer quote at the time of submission.
+      </p>
+    </>
+  ) : (
+    <p style={{color: '#785400'}}>
+      No valid quoted price is stored for this request.
+      The owner may enter an agreed price.
+    </p>
+  )}
+</div>
+
+{/* INDEPENDENT PRICE VERIFICATION */}
+
+{verifiedPrices[booking.id] && !verifiedPrices[booking.id].error ? (
+  <div style={{
+    background: '#f4f8f5',
+    border: '1px solid #b7d8c0',
+    borderRadius: '8px',
+    padding: '15px',
+    marginTop: '15px'
+  }}>
+    <h4 style={{marginTop: 0}}>
+      Current Pricing
+    </h4>
+
+    <p>
+      <strong>Current total:</strong>{' '}
+      R {verifiedPrices[booking.id].currentTotal.toLocaleString('en-ZA')}
+    </p>
+
+    <p>
+      <strong>Current minimum stay:</strong>{' '}
+      {verifiedPrices[booking.id].minimumStay} night(s)
+    </p>
+
+    {verifiedPrices[booking.id].originalQuote === null ? (
+      <p style={{color: '#785400'}}>
+        No original quote is available.
+        Review the calculated price before approval.
+      </p>
+    ) : verifiedPrices[booking.id].priceChanged ? (
+      <div style={{color: '#b00020'}}>
+        <strong>Warning: Pricing has changed.</strong>
+
+        <p>
+          Price difference: R{' '}
+          {verifiedPrices[booking.id].difference.toLocaleString('en-ZA')}
+        </p>
+
+        <p>
+          Review the new price with the customer
+          before accepting this reservation.
+        </p>
+      </div>
+    ) : (
+      <p style={{color: '#176534'}}>
+        Current total matches the customer quote.
+      </p>
+    )}
+
+    {verifiedPrices[booking.id].meetsMinimumStay ? (
+      <p style={{color: '#176534'}}>
+        Minimum stay requirement satisfied.
+      </p>
+    ) : (
+      <p style={{color: '#b00020'}}>
+        Minimum stay requirement not satisfied.
+        The owner may make an exception.
+      </p>
+    )}
+  </div>
+) : (
+  <p style={{color: '#785400'}}>
+    {verifiedPrices[booking.id]?.error || pricingErrors.settings ||
+      pricingErrors.seasons || 'Waiting for current pricing from Firebase...'}
+    {' '}Owner approval remains available.
+  </p>
+)}
+{/* OWNER AGREED PRICE */}
+
+<div style={{
+  background: '#ffffff',
+  border: '1px solid #b7ddf6',
+  borderRadius: '8px',
+  padding: '15px',
+  marginTop: '15px'
+}}>
+  <label
+    htmlFor={`agreed-price-${booking.id}`}
+    style={{
+      display: 'block',
+      fontWeight: 'bold',
+      marginBottom: '10px'
+    }}
+  >
+    Final Agreed Price (ZAR)
+  </label>
+
+  <input
+    id={`agreed-price-${booking.id}`}
+    type="number"
+    min="0"
+    max="15000000"
+    step="1"
+    value={
+      agreedPrices[booking.id] ??
+      booking.quotedTotal ??
+      ''
+    }
+    onChange={(event) => {
+      setAgreedPrices((current) => ({
+        ...current,
+        [booking.id]: event.target.value
+      }))
+    }}
+    disabled={processingRequestId !== null}
+    placeholder="Enter agreed price"
+    style={{
+      width: '100%',
+      maxWidth: '250px',
+      padding: '10px',
+      border: '1px solid #b7ddf6',
+      borderRadius: '6px',
+      fontSize: '18px',
+      boxSizing: 'border-box'
+    }}
+  />
+
+  <p style={{
+    fontSize: '12px',
+    color: '#617386',
+    marginBottom: 0
+  }}>
+    The owner may adjust the final price independently
+    of seasonal rates and minimum stay requirements.
+  </p>
+</div>
+
               <p style={{fontSize: '13px',color: '#785400'}}>
                 Awaiting owner approval.
               </p>
@@ -609,7 +909,36 @@ const handleDeleteReservation = async (booking) => {
               <p>
                 Guests: {booking.guests ?? 'Not specified'}
               </p>
+{/* CONFIRMED RESERVATION PRICE */}
 
+<div style={{
+  background: '#eef7fd',
+  borderRadius: '8px',
+  padding: '12px',
+  marginTop: '10px',
+  marginBottom: '10px'
+}}>
+  {Number.isInteger(booking.originalQuotedTotal) && (
+    <p>
+      <strong>Original quoted price:</strong>{' '}
+      R {booking.originalQuotedTotal.toLocaleString('en-ZA')}
+    </p>
+  )}
+
+  {Number.isInteger(booking.agreedTotal) ? (
+    <h3 style={{
+      color: '#176534',
+      margin: '8px 0'
+    }}>
+      Agreed price: R{' '}
+      {booking.agreedTotal.toLocaleString('en-ZA')}
+    </h3>
+  ) : (
+    <p style={{color: '#617386'}}>
+      No agreed price recorded.
+    </p>
+  )}
+</div>
                 <button
                 type="button"
                 onClick={() => handleDeleteReservation(booking)}
@@ -638,9 +967,21 @@ const handleDeleteReservation = async (booking) => {
         color: '#617386',
         textAlign: 'center'
       }}>
-        Pending requests do not block dates. Only confirmed
-        reservations appear on the calendar.
+        Pending requests appear in amber and do not block dates. Confirmed reservations appear in red and block occupied nights. Red takes priority when both overlap.
       </p>
+      <PricingManagement />
+
+      <section style={{...styles.card, textAlign:'center', borderColor:'#c6cdb4', color:'#455438'}}>
+        <img
+          src={`${import.meta.env.BASE_URL}images/figtree/figtree-banner.png`}
+          alt="Figtree Craft Stall — handcrafted items, gifts and local treats"
+          loading="lazy"
+          style={{display:'block', width:'100%', maxWidth:'1000px', height:'auto', margin:'0 auto', borderRadius:'8px'}}
+        />
+        <h3 style={{marginBottom:'8px'}}>Figtree Craft Stall — Coming Soon</h3>
+        <p style={{marginBottom:0}}>A dedicated area for managing the Figtree Craft Stall will be available here in the future.</p>
+      </section>
+
     </main>
   )
 }

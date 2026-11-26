@@ -8,6 +8,10 @@ import {
 
 import {db} from '../firebase.js'
 import {getBookedNights} from './bookingDates.js'
+import {
+  loadPricing,
+  calculateBookingPrice
+} from './pricing.js'
 
 // =====================================================
 // 1. CHECK NIGHT AVAILABILITY
@@ -215,16 +219,70 @@ export const deleteConfirmedReservation = async (
     })
   })
 }
+
+// =====================================================
+// VERIFY CUSTOMER BOOKING PRICE
+// =====================================================
+
+export const verifyBookingPrice = async (request) => {
+  const {settings, seasons} = await loadPricing()
+
+  const calculatedPrice = calculateBookingPrice(
+    request.checkIn,
+    request.checkOut,
+    request.guests,
+    settings,
+    seasons
+  )
+
+  const originalQuote =
+    Number.isInteger(request.quotedTotal) &&
+    request.quotedTotal > 0 &&
+    request.currency === 'ZAR'
+      ? request.quotedTotal
+      : null
+
+  return {
+    originalQuote,
+    currentTotal: calculatedPrice.total,
+    currency: calculatedPrice.currency,
+    nights: calculatedPrice.nights,
+    minimumStay: calculatedPrice.minimumStay,
+    meetsMinimumStay: calculatedPrice.meetsMinimumStay,
+    breakdown: calculatedPrice.breakdown,
+
+    priceChanged:
+      originalQuote !== calculatedPrice.total,
+
+    difference:
+      originalQuote === null
+        ? null
+        : calculatedPrice.total - originalQuote
+  }
+}
 // =====================================================
 // 4. ACCEPT CUSTOMER BOOKING REQUEST
 // =====================================================
 
 export const acceptBookingRequest = async (
   requestId,
-  database = db
+  database = db,
+  agreedTotal = null
 ) => {
   if (typeof requestId !== 'string' || !requestId.trim()) {
     throw new Error('Invalid booking request ID')
+  }
+
+  // Validate the optional owner-agreed price.
+  if (
+    agreedTotal !== null &&
+    (
+      !Number.isInteger(agreedTotal) ||
+      agreedTotal < 0 ||
+      agreedTotal > 15000000
+    )
+  ) {
+    throw new Error('Invalid agreed booking price')
   }
 
   const requestRef = doc(database, 'bookingRequests', requestId)
@@ -243,7 +301,10 @@ export const acceptBookingRequest = async (
       throw new Error('This request has already been processed')
     }
 
-    const nights = getBookedNights(request.checkIn, request.checkOut)
+    const nights = getBookedNights(
+      request.checkIn,
+      request.checkOut
+    )
 
     const nightRefs = await checkNightsAvailable(
       transaction,
@@ -251,34 +312,41 @@ export const acceptBookingRequest = async (
       database
     )
 
-
     // All reads are complete. Begin atomic writes.
     transaction.set(bookingRef, {
-      guestName:request.guestName,
-      email:request.email,
-      phone:request.phone,
-      guests:request.guests,
-      checkIn:request.checkIn,
-      checkOut:request.checkOut,
-      notes:request.notes,
-      status:'confirmed',
-      source:'request',
-      requestId:requestId,
-      createdAt:serverTimestamp()
+      guestName: request.guestName,
+      email: request.email,
+      phone: request.phone,
+      guests: request.guests,
+      checkIn: request.checkIn,
+      checkOut: request.checkOut,
+      notes: request.notes,
+      status: 'confirmed',
+      source: 'request',
+      requestId: requestId,
+
+      // Preserve original quote and owner-agreed price.
+      ...(agreedTotal !== null ? {
+        originalQuotedTotal: request.quotedTotal ?? null,
+        agreedTotal: agreedTotal,
+        currency: 'ZAR'
+      } : {}),
+
+      createdAt: serverTimestamp()
     })
 
     // Block every night included in the reservation.
     nightRefs.forEach((nightRef) => {
       transaction.set(nightRef, {
-        bookingId:bookingRef.id,
-        status:'confirmed'
+        bookingId: bookingRef.id,
+        status: 'confirmed'
       })
     })
 
     // Mark the original customer request as accepted.
     transaction.update(requestRef, {
-      status:'accepted',
-      bookingId:bookingRef.id
+      status: 'accepted',
+      bookingId: bookingRef.id
     })
   })
 

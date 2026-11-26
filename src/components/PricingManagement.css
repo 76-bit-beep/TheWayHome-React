@@ -1,0 +1,231 @@
+
+.pricing-management {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 30px 0;
+  padding: 24px;
+  background: #f4f9fd;
+  border: 1px solid #c9dfef;
+  border-radius: 12px;
+  color: #082f6d;
+}
+
+.pricing-management h2 {
+  margin: 0 0 10px;
+  font-size: 24px;
+}
+
+.pricing-management h3 {
+  margin: 0 0 15px;
+  font-size: 19px;
+}
+
+.pricing-management p {
+  margin: 8px 0;
+  line-height: 1.5;
+}
+
+/* PRICING CARDS */
+
+.pricing-card {
+  margin-top: 20px;
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #d5e5f2;
+  border-radius: 10px;
+}
+
+/* FORM FIELDS */
+
+.pricing-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.pricing-management label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pricing-management input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  border: 1px solid #b7d0e4;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #082f6d;
+  font-family: inherit;
+  font-size: 15px;
+}
+
+.pricing-management input:focus {
+  outline: 2px solid #83bde8;
+  border-color: #075b9e;
+}
+
+/* BUTTONS */
+
+.pricing-button,
+.pricing-secondary-button,
+.pricing-delete-button {
+  padding: 11px 18px;
+  border-radius: 7px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.pricing-button {
+  background: #082f6d;
+  color: #ffffff;
+  border: 1px solid #082f6d;
+}
+
+.pricing-button:hover {
+  background: #075b9e;
+}
+
+.pricing-secondary-button {
+  background: #ffffff;
+  color: #082f6d;
+  border: 1px solid #83bde8;
+}
+
+.pricing-secondary-button:hover {
+  background: #e4f2fc;
+}
+
+.pricing-delete-button {
+  background: #fff1f2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.pricing-delete-button:hover {
+  background: #fee2e2;
+}
+
+.pricing-management button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pricing-management button:focus-visible {
+  outline: 2px solid #075b9e;
+  outline-offset: 3px;
+}
+
+.pricing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* SEASONAL PRICING FORM */
+
+.pricing-season-form {
+  margin-top: 20px;
+  padding: 20px;
+  background: #f4f9fd;
+  border: 1px solid #c9dfef;
+  border-radius: 8px;
+}
+
+/* SAVED PRICING PERIODS */
+
+.pricing-season-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.pricing-season-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 16px;
+  background: #f8fbfd;
+  border: 1px solid #d5e5f2;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+.pricing-season-item h4 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.pricing-season-item p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+/* SUCCESS AND ERROR MESSAGES */
+
+.pricing-success {
+  margin: 15px 0;
+  padding: 12px;
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+  border-radius: 7px;
+}
+
+.pricing-error {
+  margin: 15px 0;
+  padding: 12px;
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+  border-radius: 7px;
+}
+
+/* MOBILE RESPONSIVE DESIGN */
+
+@media (max-width: 600px) {
+  .pricing-management {
+    padding: 14px;
+    margin: 20px 0;
+  }
+
+  .pricing-card,
+  .pricing-season-form {
+    padding: 14px;
+  }
+
+  .pricing-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .pricing-season-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pricing-actions {
+    width: 100%;
+  }
+
+  .pricing-actions button {
+    flex: 1;
+  }
+
+  .pricing-button {
+    width: 100%;
+  }
+
+  .pricing-management input {
+    font-size: 16px;
+  }
+}

@@ -104,7 +104,10 @@ function validApprovedBooking(bookingId) {
       'status',
       'source',
       'requestId',
-      'createdAt'
+      'createdAt',
+      'originalQuotedTotal',
+      'agreedTotal',
+      'currency'
     ])
     && data.keys().hasAll([
       'guestName',
@@ -119,6 +122,7 @@ function validApprovedBooking(bookingId) {
       'requestId',
       'createdAt'
     ])
+
     && data.source == 'request'
     && data.status == 'confirmed'
     && data.createdAt == request.time
@@ -144,6 +148,31 @@ function validApprovedBooking(bookingId) {
     && exists(
       /databases/$(database)/documents/bookingRequests/$(data.requestId)
     )
+
+    // Optional owner-approved pricing.
+&& (
+  !data.keys().hasAny([
+    'originalQuotedTotal',
+    'agreedTotal',
+    'currency'
+  ])
+  || (
+    data.keys().hasAll([
+      'originalQuotedTotal',
+      'agreedTotal',
+      'currency'
+    ])
+
+    && data.originalQuotedTotal == get(
+      /databases/$(database)/documents/bookingRequests/$(data.requestId)
+    ).data.get('quotedTotal', null)
+
+    && data.agreedTotal is int
+    && data.agreedTotal >= 0
+    && data.agreedTotal <= 15000000
+    && data.currency == 'ZAR'
+  )
+)
 
     // The original request must still be pending.
     && get(
@@ -201,18 +230,16 @@ function validApprovedBooking(bookingId) {
         && data.bookingId.size() > 0
         && data.status == 'confirmed'
         && nightId.matches('\\d{4}-\\d{2}-\\d{2}')
-        && existsAfter(
-          /databases/$(database)/documents/bookings/$(data.bookingId)
-        )
-        && getAfter(
-          /databases/$(database)/documents/bookings/$(data.bookingId)
-        ).data.status == 'confirmed'
-        && getAfter(
-          /databases/$(database)/documents/bookings/$(data.bookingId)
-        ).data.checkIn <= nightId
-        && nightId < getAfter(
-          /databases/$(database)/documents/bookings/$(data.bookingId)
-        ).data.checkOut;
+        && validAvailabilityBooking(data.bookingId, nightId);
+    }
+
+    function validAvailabilityBooking(bookingId, nightId) {
+      let booking = getAfter(
+        /databases/$(database)/documents/bookings/$(bookingId)
+      ).data;
+      return booking.status == 'confirmed'
+        && booking.checkIn <= nightId
+        && nightId < booking.checkOut;
     }
 
 
@@ -271,6 +298,30 @@ function validApprovedBooking(bookingId) {
 // 7. CUSTOMER BOOKING REQUESTS
 // =====================================================
 
+function validQuotedPrice(data) {
+  return data.quotedTotal is int
+    && data.quotedTotal > 0
+    && data.quotedTotal <= 15000000
+
+    && data.currency == 'ZAR'
+
+    && data.nights is int
+    && data.nights >= 1
+    && data.nights <= 30
+
+    && timestamp.value(data.checkOut + 'T00:00:00Z')
+      - timestamp.value(data.checkIn + 'T00:00:00Z')
+      == duration.value(data.nights, 'd')
+
+    && data.minimumStay is int
+    && data.minimumStay >= 1
+    && data.minimumStay <= 30
+    && data.nights >= data.minimumStay
+
+    && data.priceBreakdown is list
+    && data.priceBreakdown.size() == data.nights;
+}
+
 function validBookingRequest() {
   let data = request.resource.data;
 
@@ -283,7 +334,12 @@ function validBookingRequest() {
       'checkOut',
       'notes',
       'status',
-      'createdAt'
+      'createdAt',
+      'quotedTotal',
+      'currency',
+      'nights',
+      'minimumStay',
+      'priceBreakdown'
     ])
     && data.keys().hasAll([
       'guestName',
@@ -311,6 +367,7 @@ function validBookingRequest() {
     && data.guests >= 1
     && data.guests <= 5
     && validBookingDates(data.checkIn, data.checkOut)
+    && validQuotedPrice(data)
     && data.status == 'pending'
     && data.createdAt == request.time;
 }
@@ -364,6 +421,75 @@ match /bookingRequests/{requestId} {
   // Customers cannot delete booking requests.
   allow delete: if false;
 }
+
+// =====================================================
+// 8. DEFAULT PRICING SETTINGS
+// =====================================================
+
+match /pricingSettings/{settingId} {
+
+  allow read: if settingId == 'default';
+
+  allow create, update: if isAdmin()
+    && settingId == 'default'
+    && request.resource.data.keys().hasOnly([
+      'nightlyRate',
+      'minimumStay',
+      'currency'
+    ])
+    && request.resource.data.nightlyRate is int
+    && request.resource.data.nightlyRate > 0
+    && request.resource.data.nightlyRate <= 100000
+    && request.resource.data.minimumStay is int
+    && request.resource.data.minimumStay >= 1
+    && request.resource.data.minimumStay <= 30
+    && request.resource.data.currency == 'ZAR';
+
+  allow delete: if false;
+}
+
+// =====================================================
+// 9. SEASONAL PRICING
+// =====================================================
+
+match /seasonalPricing/{seasonId} {
+
+  allow read: if true;
+
+  allow create, update: if isAdmin()
+    && request.resource.data.keys().hasOnly([
+      'name',
+      'startDate',
+      'endDate',
+      'nightlyRate',
+      'minimumStay'
+    ])
+    && request.resource.data.name is string
+    && request.resource.data.name.size() > 0
+    && request.resource.data.name.size() <= 100
+    && request.resource.data.startDate is string
+    && request.resource.data.endDate is string
+    && request.resource.data.startDate.matches(
+      '\\d{4}-\\d{2}-\\d{2}'
+    )
+    && request.resource.data.endDate.matches(
+      '\\d{4}-\\d{2}-\\d{2}'
+    )
+    && timestamp.value(
+      request.resource.data.startDate + 'T00:00:00Z'
+    ) <= timestamp.value(
+      request.resource.data.endDate + 'T00:00:00Z'
+    )
+    && request.resource.data.nightlyRate is int
+    && request.resource.data.nightlyRate > 0
+    && request.resource.data.nightlyRate <= 100000
+    && request.resource.data.minimumStay is int
+    && request.resource.data.minimumStay >= 1
+    && request.resource.data.minimumStay <= 30;
+
+  allow delete: if isAdmin();
+}
+
     // =====================================================
     // 7. DENY ALL OTHER ACCESS
     // =====================================================
