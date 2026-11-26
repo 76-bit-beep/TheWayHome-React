@@ -395,3 +395,34 @@
     flex-wrap: wrap;
   }
 }
+
+/* Go Back to Homepage button */
+
+.booking-back {
+  display: block;
+  width: 100%;
+  margin-top: 15px;
+  padding: 12px 16px;
+  background: transparent;
+  color: #082f6d;
+  border: 1px solid #83bde8;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.booking-back:hover {
+  background: #e4f2fc;
+}
+
+.booking-back:focus-visible {
+  outline: 2px solid #075b9e;
+  outline-offset: 2px;
+}
+
+.booking-back:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

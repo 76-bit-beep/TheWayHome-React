@@ -1,4 +1,4 @@
-
+﻿
 import {useEffect, useState} from 'react'
 import {addDoc, collection, getDocsFromServer, onSnapshot, serverTimestamp} from 'firebase/firestore'
 import {db} from '../firebase.js'
@@ -731,6 +731,17 @@ function BookingModal({isOpen, onClose}) {
             </p>
           </div>
         )}
+
+{/* GO BACK BUTTON */}
+
+<button
+  type="button"
+  className="booking-back"
+  onClick={onClose}
+  disabled={submitting}
+>
+  ← Go Back to Homepage
+</button>
 
         {/* BOOKING DISCLAIMER */}
 

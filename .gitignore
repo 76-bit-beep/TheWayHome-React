@@ -57,3 +57,5 @@ firebase-export/
 
 # Local test artifacts
 coverage/
+# Firebase deployment cache
+.firebase/

@@ -1,5 +1,6 @@
-
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { collection, onSnapshot } from 'firebase/firestore'
+import { db } from './firebase.js'
 import BookingModal from './components/BookingModal'
 import './App.css'
 
@@ -34,11 +35,50 @@ const features = [
   ['▤', 'Linen & towels included'],
 ]
 
-// Homepage calendar preview
+// Homepage live availability calendar
 function CalendarPreview() {
   const [monthOffset, setMonthOffset] = useState(0)
+  const [bookedDates, setBookedDates] = useState(new Set())
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  // Listen for live availability changes
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, 'publicAvailability'),
+      { includeMetadataChanges: true },
+      snapshot => {
+        const unavailable = new Set()
+
+        snapshot.forEach(document => {
+          unavailable.add(document.id)
+        })
+
+        setBookedDates(unavailable)
+        setLoading(false)
+        setError(snapshot.metadata.fromCache)
+      },
+      err => {
+        console.error('Availability error:', err)
+        setError(true)
+        setLoading(false)
+      }
+    )
+
+    return () => unsubscribe()
+  }, [])
+
+  // Generate local date keys without UTC conversion
+  function dateKey(date) {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+
+    return `${year}-${month}-${day}`
+  }
 
   const today = new Date()
+  today.setHours(0, 0, 0, 0)
 
   const first = new Date(
     today.getFullYear(),
@@ -109,21 +149,80 @@ function CalendarPreview() {
           <b key={day}>{day}</b>
         ))}
 
-        {cells.map((day, index) => (
-          <span
-            key={index}
-            className={
-              day ? 'calendar-day' : 'calendar-empty'
-            }
-          >
-            {day}
-          </span>
-        ))}
+        {cells.map((day, index) => {
+          if (day === null) {
+            return (
+              <span
+                key={index}
+                className="calendar-empty"
+              />
+            )
+          }
+
+          const date = new Date(
+            first.getFullYear(),
+            first.getMonth(),
+            day
+          )
+
+          const key = dateKey(date)
+
+          let status = 'available'
+
+          if (date < today) {
+            status = 'past'
+          } else if (loading || error) {
+            status = 'unknown'
+          } else if (bookedDates.has(key)) {
+            status = 'booked'
+          }
+
+          const labels = {
+            available: 'Available',
+            booked: 'Unavailable',
+            past: 'Past date',
+            unknown: 'Availability unknown',
+          }
+
+          return (
+            <span
+              key={index}
+              className={`calendar-day calendar-${status}`}
+              title={`${key}: ${labels[status]}`}
+              aria-label={`${key}: ${labels[status]}`}
+            >
+              {day}
+            </span>
+          )
+        })}
       </div>
 
-      <p className="calendar-disclaimer">
-        Calendar preview only — live availability
-        coming soon.
+      <div className="calendar-legend">
+        <span>
+          <i className="legend-available" />
+          Available
+        </span>
+
+        <span>
+          <i className="legend-booked" />
+          Unavailable
+        </span>
+
+        <span>
+          <i className="legend-past" />
+          Past
+        </span>
+      </div>
+
+      <p
+        className="calendar-disclaimer"
+        aria-live="polite"
+      >
+        {loading
+          ? 'Checking availability...'
+          : error
+            ? 'Live availability temporarily unavailable.'
+            : 'Live availability — bookings subject to approval.'}
       </p>
     </div>
   )
@@ -378,7 +477,7 @@ function App() {
             </div>
 
             {/* BOOKING SECTION */}
-
+-- 
             <div className="booking-column">
               <CalendarPreview />
 
@@ -396,33 +495,8 @@ function App() {
           </article>
         </section>
 
-        {/* FIGTREE CRAFT STALL */}
+       
 
-        <section
-          className="figtree-banner"
-          id="figtree"
-        >
-          <div
-            className="fig-art"
-            aria-hidden="true"
-          >
-            ❧
-          </div>
-
-          <h2>Figtree Craft Stall</h2>
-
-          <p>
-            A selection of handcrafted items,
-            gifts and local treats. From
-            home-grown goodness to unique,
-            locally made crafts inspired
-            by the West Coast.
-          </p>
-
-          <span className="shop-coming">
-            Craft stall coming soon
-          </span>
-        </section>
 
         {/* CONTACT SECTION */}
 
@@ -514,17 +588,38 @@ function App() {
             </a>
           </div>
         </section>
+{/* FIGTREE CRAFT STALL */}
+
+<section
+  className="figtree-image-banner"
+  id="figtree"
+>
+  <img
+    src={`${base}images/figtree/figtree-banner.png`}
+    alt="Figtree Craft Stall - Handcrafted items, gifts and local treats"
+    loading="lazy"
+    className="figtree-banner-image"
+  />
+</section>
 
       </main>
 
       {/* FOOTER */}
 
-      <footer className="site-footer">
-        <span>
-          © {new Date().getFullYear()} The Way Home ·
-          Vredenburg, South Africa
-        </span>
-      </footer>
+<footer className="site-footer">
+  <span>
+    © {new Date().getFullYear()} The Way Home ·
+    Vredenburg, South Africa
+  </span>
+
+  <a
+    className="admin-login-link"
+    href={`${base}admin`}
+  >
+    Admin Login
+  </a>
+</footer>
+
 
       {/* BOOKING POP-UP */}
 
