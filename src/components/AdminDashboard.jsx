@@ -163,6 +163,58 @@ function BookingRow({booking, expanded, onToggle, children}) {
   )
 }
 
+function PriceAdjustment({original, agreed, basis}) {
+  if (
+    !Number.isInteger(original) ||
+    original <= 0 ||
+    agreed === null ||
+    agreed === undefined ||
+    String(agreed).trim() === ''
+  ) return null
+
+  const finalPrice = Number(agreed)
+
+  if (
+    !Number.isInteger(finalPrice) ||
+    finalPrice < 0 ||
+    finalPrice > 15000000
+  ) return null
+
+  const difference = original - finalPrice
+  const percentage = Math.abs(difference / original * 100)
+
+  if (difference === 0) return null
+
+  return (
+    <div style={{
+      background: difference > 0 ? '#edf8ef' : '#fff4e5',
+      borderRadius: '8px',
+      padding: '12px',
+      marginTop: '12px',
+      marginBottom: '12px',
+      color: difference > 0 ? '#176534' : '#925400'
+    }}>
+      <strong>
+        {difference > 0
+          ? 'Negotiated discount: R '
+          : 'Additional charge: R '}
+        {Math.abs(difference).toLocaleString('en-ZA')}
+        {' ('}
+        {percentage.toLocaleString('en-ZA', {
+          maximumFractionDigits: 2
+        })}
+        {'%)'}
+      </strong>
+
+      {basis && (
+        <p style={{fontSize: '12px', marginBottom: 0}}>
+          Compared with {basis}: R {original.toLocaleString('en-ZA')}
+        </p>
+      )}
+    </div>
+  )
+}
+
 function AdminDashboard() {
   const [expandedBooking, setExpandedBooking] = useState(null)
   const [bookingFilter, setBookingFilter] = useState('all')
@@ -949,6 +1001,28 @@ const handleDeleteReservation = async (booking) => {
     }}
   />
 
+  <PriceAdjustment
+    original={
+      Number.isInteger(booking.quotedTotal) &&
+      booking.quotedTotal > 0 &&
+      booking.currency === 'ZAR'
+        ? booking.quotedTotal
+        : verifiedPrices[booking.id]?.currentTotal
+    }
+    agreed={
+      agreedPrices[booking.id] ??
+      booking.quotedTotal ??
+      ''
+    }
+    basis={
+      Number.isInteger(booking.quotedTotal) &&
+      booking.quotedTotal > 0 &&
+      booking.currency === 'ZAR'
+        ? 'original customer quote'
+        : 'current calculated price'
+    }
+  />
+
   <p style={{
     fontSize: '12px',
     color: '#617386',
@@ -1076,6 +1150,11 @@ const handleDeleteReservation = async (booking) => {
       R {booking.originalQuotedTotal.toLocaleString('en-ZA')}
     </p>
   )}
+
+  <PriceAdjustment
+    original={booking.originalQuotedTotal}
+    agreed={booking.agreedTotal}
+  />
 
   {Number.isInteger(booking.agreedTotal) ? (
     <h3 style={{
