@@ -598,12 +598,20 @@ function App() {
   className="figtree-image-banner"
   id="figtree"
 >
-  <img
+  <a
+    href="https://figtree-88f0e.web.app/"
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label="Visit the Figtree Craft Stall website"
+    style={{display: 'block', cursor: 'pointer'}}
+  >
+    <img
     src={`${base}images/figtree/figtree-banner.png`}
     alt="Figtree Craft Stall - Handcrafted items, gifts and local treats"
     loading="lazy"
     className="figtree-banner-image"
   />
+  </a>
 </section>
 
       </main>

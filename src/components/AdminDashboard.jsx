@@ -1243,8 +1243,51 @@ const handleDeleteReservation = async (booking) => {
           loading="lazy"
           style={{display:'block', width:'100%', maxWidth:'1000px', height:'auto', margin:'0 auto', borderRadius:'8px'}}
         />
-        <h3 style={{marginBottom:'8px'}}>Figtree Craft Stall — Coming Soon</h3>
-        <p style={{marginBottom:0}}>A dedicated area for managing the Figtree Craft Stall will be available here in the future.</p>
+        <h3 style={{marginBottom:'8px'}}>
+          Figtree Craft Stall
+        </h3>
+
+        <p>Website &amp; Shop Management</p>
+
+        <div style={{
+          display:'flex',
+          justifyContent:'center',
+          flexWrap:'wrap',
+          gap:'12px',
+          marginTop:'16px'
+        }}>
+          <a
+            href="https://figtree-88f0e.web.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              padding:'12px 22px',
+              border:'1px solid #608d19',
+              borderRadius:'8px',
+              color:'#455438',
+              textDecoration:'none',
+              fontWeight:'bold'
+            }}
+          >
+            View Website
+          </a>
+
+          <a
+            href="https://figtree-88f0e.web.app/admin"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              padding:'12px 22px',
+              background:'#608d19',
+              borderRadius:'8px',
+              color:'#fff',
+              textDecoration:'none',
+              fontWeight:'bold'
+            }}
+          >
+            Manage Figtree
+          </a>
+        </div>
       </section>
 
     </main>
