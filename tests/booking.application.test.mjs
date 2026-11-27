@@ -2,20 +2,9 @@
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
 
-import {initializeApp,deleteApp} from 'firebase/app'
-
-import {
-  getAuth,
-  connectAuthEmulator,
-  signInWithEmailAndPassword
-} from 'firebase/auth'
-
-import {
-  getFirestore,
-  connectFirestoreEmulator,
-  doc,
-  getDoc
-} from 'firebase/firestore'
+import {initializeTestEnvironment} from '@firebase/rules-unit-testing'
+import {readFileSync} from 'node:fs'
+import {doc,getDoc} from 'firebase/firestore'
 
 import {
   createConfirmedReservation,
@@ -26,30 +15,19 @@ import {
 // LOCAL FIREBASE EMULATOR CONFIGURATION
 // =====================================================
 
-const projectId = 'thewayhome-f20bd'
+const projectId = 'demo-thewayhome'
 const adminUid = 'qCMUIllRSgRmTucv7Tlqz5PJ3gl2'
 
-const app = initializeApp({
+const env = await initializeTestEnvironment({
   projectId,
-  apiKey:'test-api-key',
-  appId:'booking-application-test'
-},'booking-application-test')
+  firestore: {
+    host: '127.0.0.1',
+    port: 8081,
+    rules: readFileSync('firestore.rules', 'utf8')
+  }
+})
 
-const auth = getAuth(app)
-
-connectAuthEmulator(
-  auth,
-  'http://127.0.0.1:9099',
-  {disableWarnings:true}
-)
-
-const db = getFirestore(app)
-
-connectFirestoreEmulator(
-  db,
-  '127.0.0.1',
-  8080
-)
+const db = env.authenticatedContext(adminUid).firestore()
 
 // =====================================================
 // TEST RESERVATION DATA
@@ -95,18 +73,7 @@ test('Application booking transactions',async (t) => {
     // AUTHENTICATE LOCAL ADMINISTRATOR
     // =====================================================
 
-    const credential = await signInWithEmailAndPassword(
-      auth,
-      'booking-admin-local@example.com',
-      'LocalTestPassword123!'
-    )
-
-    assert.equal(credential.user.uid,adminUid)
-
-    console.log(
-      'Local administrator authenticated:',
-      credential.user.uid
-    )
+    await env.clearFirestore()
 
     // =====================================================
     // TEST 1: CREATE CONFIRMED RESERVATION
@@ -251,13 +218,13 @@ test('Application booking transactions',async (t) => {
         console.log('Original test reservation removed')
       }
 
-      if (auth.currentUser) {
+      {
         await verifyDatesReleased()
         console.log('Test dates released successfully')
       }
 
     } finally {
-      await deleteApp(app)
+      await env.cleanup()
     }
   }
 })

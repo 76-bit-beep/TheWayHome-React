@@ -215,6 +215,49 @@ export const deleteConfirmedReservation = async (
       }
     }
 
+    // Locate and verify the original customer request.
+    let originalRequestRef = null
+
+    if (booking.source === 'request') {
+      if (
+        typeof booking.requestId !== 'string' ||
+        !booking.requestId.trim()
+      ) {
+        throw new Error('Missing original booking request ID')
+      }
+
+      const requestRef = doc(
+        database,
+        'bookingRequests',
+        booking.requestId
+      )
+
+      const requestSnapshot =
+        await transaction.get(requestRef)
+
+      if (requestSnapshot.exists()) {
+        const originalRequest = requestSnapshot.data()
+
+        if (
+          originalRequest.status !== 'accepted' ||
+          originalRequest.bookingId !== bookingId
+        ) {
+          throw new Error(
+            'Original booking request does not match reservation'
+          )
+        }
+
+        originalRequestRef = requestRef
+      }
+    }
+
+    // All transaction reads are complete.
+
+    // Delete the original customer request.
+    if (originalRequestRef) {
+      transaction.delete(originalRequestRef)
+    }
+
     // Delete the private reservation.
     transaction.delete(bookingRef)
 
@@ -231,8 +274,8 @@ export const deleteConfirmedReservation = async (
 // VERIFY CUSTOMER BOOKING PRICE
 // =====================================================
 
-export const verifyBookingPrice = async (request) => {
-  const {settings, seasons} = await loadPricing()
+export const verifyBookingPrice = async (request, database = db) => {
+  const {settings, seasons} = await loadPricing(database)
 
   const calculatedPrice = calculateBookingPrice(
     request.checkIn,

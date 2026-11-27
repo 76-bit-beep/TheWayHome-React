@@ -3,6 +3,7 @@ import {useEffect, useMemo, useState} from 'react'
 import {collection, doc, onSnapshot, updateDoc} from 'firebase/firestore'
 import {
   acceptBookingRequest,
+  verifyBookingPrice,
   deleteConfirmedReservation
 } from '../utils/availabilityFirestore'
 import {signOut} from 'firebase/auth'
@@ -413,60 +414,97 @@ const handleDeleteReservation = async (booking) => {
     if (processingRequestId || booking.status !== 'pending') return
 
     const isAccept = action === 'accept'
-    const prompt = isAccept
-      ? `Accept the booking request for ${booking.guestName || 'Guest'}?\n\n` +
-        `Arrival: ${formatDate(booking.checkIn)}\n` +
-        `Departure: ${formatDate(booking.checkOut)}\n\n` +
-        'This will confirm the reservation and block its dates.'
-      : `Decline the booking request for ${booking.guestName || 'Guest'}?\n\n` +
-        'The requested dates will remain available.'
-
-    if (!window.confirm(prompt)) return
 
     setProcessingRequestId(booking.id)
     setRequestActionError('')
 
     try {
       if (isAccept) {
-  const rawPrice =
-    agreedPrices[booking.id] ??
-    booking.quotedTotal ??
-    ''
+        const rawPrice =
+          agreedPrices[booking.id] ??
+          booking.quotedTotal ??
+          ''
 
-  const agreedTotal =
-    String(rawPrice).trim() === ''
-      ? null
-      : Number(rawPrice)
+        const agreedTotal =
+          String(rawPrice).trim() === ''
+            ? null
+            : Number(rawPrice)
 
-  if (
-    agreedTotal !== null &&
-    (
-      !Number.isInteger(agreedTotal) ||
-      agreedTotal < 0 ||
-      agreedTotal > 15000000
-    )
-  ) {
-    setRequestActionError(
-      'Please enter a valid agreed booking price.'
-    )
-    return
-  }
+        if (
+          !Number.isInteger(agreedTotal) ||
+          agreedTotal < 0 ||
+          agreedTotal > 15000000
+        ) {
+          setRequestActionError(
+            'Please enter a valid final agreed price. R0 is permitted.'
+          )
+          return
+        }
 
-  await acceptBookingRequest(
-    booking.id,
-    db,
-    agreedTotal
-  )
-} else {
+        let verification
+
+        try {
+          verification = await verifyBookingPrice(booking, db)
+        } catch (err) {
+          console.error('Pricing verification failed:', err)
+          setRequestActionError(
+            'Current pricing could not be verified. Approval has been stopped. Please try again.'
+          )
+          return
+        }
+
+        const originalPrice =
+          verification.originalQuote === null
+            ? 'Unavailable'
+            : `R ${verification.originalQuote.toLocaleString('en-ZA')}`
+
+        const currentPrice =
+          `R ${verification.currentTotal.toLocaleString('en-ZA')}`
+
+        const finalPrice =
+          `R ${agreedTotal.toLocaleString('en-ZA')}`
+
+        const warning = verification.priceChanged
+          ? '\nWARNING: The original booking price differs from current pricing or is unavailable. This may be due to a rate change or invalid booking price data. Review carefully before confirming.\n'
+          : ''
+
+        const prompt =
+          `Accept booking for ${booking.guestName || 'Guest'}?\n\n` +
+          `Arrival: ${formatDate(booking.checkIn)}\n` +
+          `Departure: ${formatDate(booking.checkOut)}\n\n` +
+          `Original booking price: ${originalPrice}\n` +
+          `Current calculated price: ${currentPrice}\n` +
+          `Final agreed price: ${finalPrice}\n` +
+          warning +
+          (agreedTotal === 0
+            ? '\nComplimentary accommodation: R0.\n'
+            : '') +
+          '\nConfirm this reservation at the final agreed price and block its dates?'
+
+        if (!window.confirm(prompt)) return
+
+        await acceptBookingRequest(
+          booking.id,
+          db,
+          agreedTotal
+        )
+      } else {
+        const prompt =
+          `Decline the booking request for ${booking.guestName || 'Guest'}?\n\n` +
+          'The requested dates will remain available.'
+
+        if (!window.confirm(prompt)) return
+
         await updateDoc(doc(db, 'bookingRequests', booking.id), {
-          status:'declined'
+          status: 'declined'
         })
       }
     } catch (err) {
       console.error(`Unable to ${action} booking request:`, err)
+
       setRequestActionError(
         isAccept
-          ? 'Unable to confirm approval. The dates may already be booked or Firebase may have rejected the operation. Refresh and check the request status before trying again.'
+          ? 'Unable to confirm approval. Refresh and check availability and request status before trying again.'
           : 'Unable to decline this request. Please check Firebase permissions and try again.'
       )
     } finally {
@@ -831,10 +869,7 @@ const handleDeleteReservation = async (booking) => {
         {booking.nights}
       </p>
 
-      <p>
-        <strong>Minimum stay:</strong>{' '}
-        {booking.minimumStay} night(s)
-      </p>
+      
 
       {Array.isArray(booking.priceBreakdown) && (
         <div>
@@ -903,10 +938,7 @@ const handleDeleteReservation = async (booking) => {
       R {verifiedPrices[booking.id].currentTotal.toLocaleString('en-ZA')}
     </p>
 
-    <p>
-      <strong>Current minimum stay:</strong>{' '}
-      {verifiedPrices[booking.id].minimumStay} night(s)
-    </p>
+    
 
     {verifiedPrices[booking.id].originalQuote === null ? (
       <p style={{color: '#785400'}}>
@@ -915,7 +947,7 @@ const handleDeleteReservation = async (booking) => {
       </p>
     ) : verifiedPrices[booking.id].priceChanged ? (
       <div style={{color: '#b00020'}}>
-        <strong>Warning: Pricing has changed.</strong>
+        <strong>Warning: Booking price discrepancy.</strong>
 
         <p>
           Price difference: R{' '}
@@ -933,22 +965,13 @@ const handleDeleteReservation = async (booking) => {
       </p>
     )}
 
-    {verifiedPrices[booking.id].meetsMinimumStay ? (
-      <p style={{color: '#176534'}}>
-        Minimum stay requirement satisfied.
-      </p>
-    ) : (
-      <p style={{color: '#b00020'}}>
-        Minimum stay requirement not satisfied.
-        The owner may make an exception.
-      </p>
-    )}
+    
   </div>
 ) : (
   <p style={{color: '#785400'}}>
     {verifiedPrices[booking.id]?.error || pricingErrors.settings ||
       pricingErrors.seasons || 'Waiting for current pricing from Firebase...'}
-    {' '}Owner approval remains available.
+    {' '}Approval requires successful pricing verification.
   </p>
 )}
 {/* OWNER AGREED PRICE */}
@@ -1029,7 +1052,7 @@ const handleDeleteReservation = async (booking) => {
     marginBottom: 0
   }}>
     The owner may adjust the final price independently
-    of seasonal rates and minimum stay requirements.
+    of seasonal rates, including complimentary accommodation.
   </p>
 </div>
 

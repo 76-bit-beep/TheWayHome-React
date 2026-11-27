@@ -8,14 +8,14 @@ const {
 
 const createEmulatorDatabase = () => {
   const app = initializeApp({
-    projectId:'thewayhome-f20bd',
+    projectId:'demo-thewayhome',
     apiKey:'test-api-key',
     appId:'test-app-id'
   },'booking-emulator-test')
 
   const db = getFirestore(app)
 
-  connectFirestoreEmulator(db,'127.0.0.1',8080)
+  connectFirestoreEmulator(db,'127.0.0.1',8081)
 
   return {
     db,

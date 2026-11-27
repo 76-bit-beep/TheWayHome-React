@@ -180,7 +180,7 @@ export default function PricingManagement() {
       <h2>Pricing Management</h2>
 
       <p>
-        Manage accommodation rates and minimum stays.
+        Manage standard and seasonal accommodation rates. Single-night reservations are available throughout the year.
         Rates are entered per person, per night.
         Automatic booking prices have a minimum charge equivalent
         to two guests per night, including seasonal rates.
@@ -228,23 +228,7 @@ export default function PricingManagement() {
               />
             </label>
 
-            <label>
-              Minimum stay (nights)
-
-              <input
-                type="number"
-                min="1"
-                max="30"
-                required
-                value={settings.minimumStay}
-                onChange={event =>
-                  setSettings({
-                    ...settings,
-                    minimumStay: event.target.value
-                  })
-                }
-              />
-            </label>
+            
 
           </div>
 
@@ -370,23 +354,7 @@ export default function PricingManagement() {
                 />
               </label>
 
-              <label>
-                Minimum stay (nights)
-
-                <input
-                  type="number"
-                  min="1"
-                  max="30"
-                  required
-                  value={season.minimumStay}
-                  onChange={event =>
-                    setSeason({
-                      ...season,
-                      minimumStay: event.target.value
-                    })
-                  }
-                />
-              </label>
+              
 
             </div>
 
@@ -447,10 +415,7 @@ export default function PricingManagement() {
                   {' per person, per night'}
                 </p>
 
-                <p>
-                  Minimum stay: {item.minimumStay}
-                  {' night(s)'}
-                </p>
+                
 
               </div>
 

@@ -79,9 +79,6 @@ function ManualReservation({bookings = [], onSaved, onCancel}) {
         pricing.seasons
       )
 
-      if (!quote.meetsMinimumStay) {
-        quoteError = `Minimum stay: ${quote.minimumStay} nights.`
-      }
     } catch (err) {
       quoteError = err.message
     }
@@ -95,7 +92,7 @@ function ManualReservation({bookings = [], onSaved, onCancel}) {
 
   const validFinalPrice =
     Number.isInteger(finalPrice) &&
-    finalPrice > 0 &&
+    finalPrice >= 0 &&
     finalPrice <= 15000000
 
   const handleSubmit = async (event) => {
@@ -160,10 +157,6 @@ function ManualReservation({bookings = [], onSaved, onCancel}) {
 
       setPricing(latestPricing)
 
-      if (!latestQuote.meetsMinimumStay) {
-        setError(`Minimum stay: ${latestQuote.minimumStay} nights.`)
-        return
-      }
 
       if (JSON.stringify(latestQuote) !== JSON.stringify(quote)) {
         setError('Pricing has changed. Review the updated price before saving.')
@@ -371,7 +364,7 @@ function ManualReservation({bookings = [], onSaved, onCancel}) {
                 <input
                   type="number"
                   style={fieldStyle}
-                  min={1}
+                  min={0}
                   max={15000000}
                   step={1}
                   value={agreedPrice}
@@ -386,7 +379,7 @@ function ManualReservation({bookings = [], onSaved, onCancel}) {
 
               <p>
                 Leave empty to use the calculated price,
-                or enter the amount agreed with the guest.
+                or enter the amount agreed with the guest. Enter R0 for complimentary accommodation.
               </p>
 
               {validFinalPrice && (

@@ -18,14 +18,33 @@ const firebaseConfig = {
   appId: '1:516958158491:web:7b611bae84e6654dd4d03e'
 }
 
-const app = initializeApp(firebaseConfig)
+const isNodeTest =
+  typeof window === 'undefined' &&
+  typeof process !== 'undefined' &&
+  process.env.THEWAYHOME_TEST === '1'
+
+if (typeof window === 'undefined' && !isNodeTest) {
+  throw new Error('Firebase initialization outside browser requires test mode')
+}
+
+const app = initializeApp(
+  isNodeTest
+    ? {
+        projectId: 'demo-thewayhome',
+        apiKey: 'test-api-key',
+        appId: 'test-app-id'
+      }
+    : firebaseConfig
+)
 
 export const auth = getAuth(app)
 export const db = getFirestore(app)
 
 // Connect to local Firebase emulators during Vite development.
 // Production builds continue using the real Firebase services.
-if (import.meta.env.DEV) {
+if (isNodeTest) {
+  connectFirestoreEmulator(db, '127.0.0.1', 8081)
+} else if (import.meta.env?.DEV) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', {
     disableWarnings:true
   })

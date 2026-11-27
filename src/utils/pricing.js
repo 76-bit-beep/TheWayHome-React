@@ -22,14 +22,14 @@ export const DEFAULT_PRICING = {
 
 // LOAD PRICING SETTINGS
 
-export async function loadPricing() {
+export async function loadPricing(database = db) {
   const [settingsSnapshot, seasonsSnapshot] =
     await Promise.all([
       getDocFromServer(
-        doc(db, 'pricingSettings', 'default')
+        doc(database, 'pricingSettings', 'default')
       ),
       getDocsFromServer(
-        collection(db, 'seasonalPricing')
+        collection(database, 'seasonalPricing')
       )
     ])
 
@@ -52,7 +52,7 @@ export async function saveDefaultPricing(settings) {
     doc(db, 'pricingSettings', 'default'),
     {
       nightlyRate: Number(settings.nightlyRate),
-      minimumStay: Number(settings.minimumStay),
+      minimumStay: 1,
       currency: 'ZAR'
     }
   )
@@ -66,7 +66,7 @@ export async function saveSeasonalPricing(season) {
     startDate: season.startDate,
     endDate: season.endDate,
     nightlyRate: Number(season.nightlyRate),
-    minimumStay: Number(season.minimumStay)
+    minimumStay: 1
   }
 
   if (season.id) {
@@ -141,7 +141,7 @@ export function calculateBookingPrice(
 
   const breakdown = []
   let total = 0
-  let minimumStay = 1
+  const minimumStay = 1
 
   const current = new Date(start)
 
@@ -187,10 +187,7 @@ export function calculateBookingPrice(
     const chargeableGuests = Math.max(2, guestCount)
     const nightlyTotal = nightlyRate * chargeableGuests
 
-    minimumStay = Math.max(
-      minimumStay,
-      activePricing.minimumStay
-    )
+    
 
     total += nightlyTotal
 

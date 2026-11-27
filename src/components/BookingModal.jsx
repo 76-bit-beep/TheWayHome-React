@@ -212,7 +212,6 @@ if (checkIn && checkOut && !pricingLoading && !pricingError) {
 }
 
 const total = bookingPrice?.total ?? 0
-const minimumStay = bookingPrice?.minimumStay ?? 1
 
   const resetPreview = () => {
     setPreview(false)
@@ -285,12 +284,6 @@ if (!bookingPrice) {
   return
 }
 
-if (!bookingPrice.meetsMinimumStay) {
-  setError(
-    `Your selected dates require a minimum stay of ${minimumStay} nights.`
-  )
-  return
-}
     if (availabilityLoading || availabilityError) {
       setError('Availability is not ready. Please try again shortly.')
       return
@@ -331,8 +324,7 @@ if (!bookingPrice.meetsMinimumStay) {
       pricingLoading ||
       pricingError ||
       calculationError ||
-      !bookingPrice ||
-      !bookingPrice.meetsMinimumStay
+      !bookingPrice
     ) {
       setPreview(false)
       setError('Please review your booking dates and pricing.')
@@ -386,17 +378,9 @@ const latestBookingPrice = calculateBookingPrice(
 setPricingSettings(latestPricing.settings)
 setSeasonalPricing(latestPricing.seasons)
 
-if (!latestBookingPrice.meetsMinimumStay) {
-  setPreview(false)
-  setError(
-    `These dates now require a minimum stay of ${latestBookingPrice.minimumStay} nights.`
-  )
-  return
-}
 
 if (
   latestBookingPrice.total !== bookingPrice.total ||
-  latestBookingPrice.minimumStay !== bookingPrice.minimumStay ||
   JSON.stringify(latestBookingPrice.breakdown) !==
     JSON.stringify(bookingPrice.breakdown)
 ) {
@@ -420,7 +404,7 @@ await addDoc(collection(db, 'bookingRequests'), {
   quotedTotal:latestBookingPrice.total,
   currency:latestBookingPrice.currency,
   nights:latestBookingPrice.nights,
-  minimumStay:latestBookingPrice.minimumStay,
+  minimumStay:1,
   priceBreakdown:latestBookingPrice.breakdown,
 
   status:'pending',
@@ -740,17 +724,9 @@ await addDoc(collection(db, 'bookingRequests'), {
         </div>
       ))}
 
-      <p>
-        Minimum stay:
-        <strong> {minimumStay} night(s)</strong>
-      </p>
+      
 
-      {!bookingPrice.meetsMinimumStay && (
-        <p role="alert" style={{color: '#b00020'}}>
-          Your selected dates require a minimum stay
-          of {minimumStay} nights.
-        </p>
-      )}
+      
     </>
   )}
 

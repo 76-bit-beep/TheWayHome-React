@@ -18,7 +18,7 @@ const fs = require('node:fs')
 const {test} = require('node:test')
 const assert = require('node:assert/strict')
 
-const projectId = 'thewayhome-f20bd'
+const projectId = 'demo-thewayhome'
 const adminUid = 'qCMUIllRSgRmTucv7Tlqz5PJ3gl2'
 
 // =====================================================
@@ -44,7 +44,7 @@ test('Firestore booking security',async (t) => {
     projectId,
     firestore:{
       host:'127.0.0.1',
-      port:8080,
+      port:8081,
       rules:fs.readFileSync('firestore.rules','utf8')
     }
   })

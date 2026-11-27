@@ -19,10 +19,40 @@ const {
 const fs = require('node:fs')
 const {test} = require('node:test')
 
-const projectId = 'thewayhome-f20bd'
+const projectId = 'demo-thewayhome'
 const adminUid = 'qCMUIllRSgRmTucv7Tlqz5PJ3gl2'
 
-const requestData = (overrides = {}) => ({
+const withTestPricing = (data) => {
+  const start = new Date(data.checkIn + 'T00:00:00Z')
+  const end = new Date(data.checkOut + 'T00:00:00Z')
+  const nights = (end - start) / 86400000
+  const chargeableGuests = Math.max(2, data.guests)
+  const nightlyRate = 400
+  const nightlyTotal = nightlyRate * chargeableGuests
+
+  return {
+    ...data,
+    quotedTotal: nights * nightlyTotal,
+    currency: 'ZAR',
+    nights,
+    minimumStay: 1,
+    priceBreakdown: Array.from(
+      {length: Math.max(0, nights)},
+      (_, i) => ({
+        date: new Date(
+          start.getTime() + i * 86400000
+        ).toISOString().slice(0, 10),
+        nightlyRate,
+        guests: data.guests,
+        chargeableGuests,
+        total: nightlyTotal,
+        season: 'Standard rate'
+      })
+    )
+  }
+}
+
+const requestData = (overrides = {}) => withTestPricing({
   guestName:'Test Customer',
   email:'customer@example.com',
   phone:'0123456789',
@@ -40,7 +70,7 @@ test('Customer booking request security',async (t) => {
     projectId,
     firestore:{
       host:'127.0.0.1',
-      port:8080,
+      port:8081,
       rules:fs.readFileSync('firestore.rules','utf8')
     }
   })

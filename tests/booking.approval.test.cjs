@@ -23,14 +23,44 @@ const assert = require('node:assert/strict')
 // 1. TEST CONFIGURATION
 // =====================================================
 
-const projectId = 'thewayhome-f20bd'
+const projectId = 'demo-thewayhome'
 const adminUid = 'qCMUIllRSgRmTucv7Tlqz5PJ3gl2'
 
 // IMPORTANT:
 // These tests use the isolated Firestore Emulator
-// on port 8081, NOT the main emulator on port 8080.
+// on dedicated test port 8081.
 
-const requestData = (overrides = {}) => ({
+const withTestPricing = (data) => {
+  const start = new Date(data.checkIn + 'T00:00:00Z')
+  const end = new Date(data.checkOut + 'T00:00:00Z')
+  const nights = (end - start) / 86400000
+  const chargeableGuests = Math.max(2, data.guests)
+  const nightlyRate = 400
+  const nightlyTotal = nightlyRate * chargeableGuests
+
+  return {
+    ...data,
+    quotedTotal: nights * nightlyTotal,
+    currency: 'ZAR',
+    nights,
+    minimumStay: 1,
+    priceBreakdown: Array.from(
+      {length: Math.max(0, nights)},
+      (_, i) => ({
+        date: new Date(
+          start.getTime() + i * 86400000
+        ).toISOString().slice(0, 10),
+        nightlyRate,
+        guests: data.guests,
+        chargeableGuests,
+        total: nightlyTotal,
+        season: 'Standard rate'
+      })
+    )
+  }
+}
+
+const requestData = (overrides = {}) => withTestPricing({
   guestName:'Approval Test Customer',
   email:'approval-test@example.com',
   phone:'0123456789',

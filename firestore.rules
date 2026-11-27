@@ -95,7 +95,7 @@ service cloud.firestore {
           || (
             data.keys().hasAll(['agreedTotal', 'currency'])
             && data.agreedTotal is int
-            && data.agreedTotal > 0
+            && data.agreedTotal >= 0
             && data.agreedTotal <= 15000000
             && data.currency == 'ZAR'
           )
@@ -336,8 +336,7 @@ function validQuotedPrice(data) {
       == duration.value(data.nights, 'd')
 
     && data.minimumStay is int
-    && data.minimumStay >= 1
-    && data.minimumStay <= 30
+    && data.minimumStay == 1
     && data.nights >= data.minimumStay
 
     && data.priceBreakdown is list
@@ -441,7 +440,21 @@ match /bookingRequests/{requestId} {
 
 
   // Customers cannot delete booking requests.
-  allow delete: if false;
+  allow delete: if isAdmin()
+        && resource.data.status == 'accepted'
+        && resource.data.bookingId is string
+        && exists(
+          /databases/$(database)/documents/bookings/$(resource.data.bookingId)
+        )
+        && get(
+          /databases/$(database)/documents/bookings/$(resource.data.bookingId)
+        ).data.source == 'request'
+        && get(
+          /databases/$(database)/documents/bookings/$(resource.data.bookingId)
+        ).data.requestId == requestId
+        && !existsAfter(
+          /databases/$(database)/documents/bookings/$(resource.data.bookingId)
+        );
 }
 
 // =====================================================
@@ -463,8 +476,7 @@ match /pricingSettings/{settingId} {
     && request.resource.data.nightlyRate > 0
     && request.resource.data.nightlyRate <= 100000
     && request.resource.data.minimumStay is int
-    && request.resource.data.minimumStay >= 1
-    && request.resource.data.minimumStay <= 30
+    && request.resource.data.minimumStay == 1
     && request.resource.data.currency == 'ZAR';
 
   allow delete: if false;
@@ -506,8 +518,7 @@ match /seasonalPricing/{seasonId} {
     && request.resource.data.nightlyRate > 0
     && request.resource.data.nightlyRate <= 100000
     && request.resource.data.minimumStay is int
-    && request.resource.data.minimumStay >= 1
-    && request.resource.data.minimumStay <= 30;
+    && request.resource.data.minimumStay == 1;
 
   allow delete: if isAdmin();
 }
