@@ -181,7 +181,10 @@ export default function PricingManagement() {
 
       <p>
         Manage accommodation rates and minimum stays.
-        All prices are per person, per night.
+        Rates are entered per person, per night.
+        Automatic booking prices have a minimum charge equivalent
+        to two guests per night, including seasonal rates.
+        Owners may override the final agreed reservation price.
       </p>
 
       {message && (
@@ -407,7 +410,7 @@ export default function PricingManagement() {
                   setError('')
                 }}
               >
-                Cancel
+                &#8592; Back to Pricing
               </button>
 
             </div>
@@ -484,3 +487,4 @@ export default function PricingManagement() {
     </section>
   )
 }
+

@@ -1,4 +1,4 @@
-﻿import './AdminDashboard.css'
+import './AdminDashboard.css'
 import {useEffect, useMemo, useState} from 'react'
 import {collection, doc, onSnapshot, updateDoc} from 'firebase/firestore'
 import {
@@ -178,6 +178,8 @@ function AdminDashboard() {
   const [requestsLoading, setRequestsLoading] = useState(true)
   const [requestsError, setRequestsError] = useState('')
   const [monthOffset, setMonthOffset] = useState(0)
+  const [showCalendar, setShowCalendar] = useState(false)
+  const [showPricing, setShowPricing] = useState(false)
   const [selectedDate, setSelectedDate] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
   const [processingRequestId, setProcessingRequestId] = useState(null)
@@ -442,15 +444,7 @@ const handleDeleteReservation = async (booking) => {
       : '+ Add Manual Reservation'}
   </button>
 
-  {showManualReservation && (
-    <div style={{marginTop: '20px'}}>
-      <ManualReservation
-        bookings={bookings}
-        onSaved={() => setShowManualReservation(false)}
-        onCancel={() => setShowManualReservation(false)}
-      />
-    </div>
-  )}
+  
 </section>
         <div>
           <h1 style={{marginBottom: '5px'}}>
@@ -471,6 +465,16 @@ const handleDeleteReservation = async (booking) => {
         </button>
       </header>
 
+      {showManualReservation && (
+    <div style={{marginTop: '20px'}}>
+      <ManualReservation
+        bookings={bookings}
+        onSaved={() => setShowManualReservation(false)}
+        onCancel={() => setShowManualReservation(false)}
+      />
+    </div>
+  )}
+
       {error && (
         <p role="alert" style={{color: '#b00020'}}>
           {error}
@@ -478,6 +482,37 @@ const handleDeleteReservation = async (booking) => {
       )}
 
       <section style={styles.card}>
+        <button
+          type="button"
+          aria-expanded={showCalendar}
+          aria-controls="admin-availability-calendar"
+          onClick={() => setShowCalendar(current => !current)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+            padding: '12px 4px',
+            border: 'none',
+            background: 'transparent',
+            color: '#082f6d',
+            fontSize: '18px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            textAlign: 'left'
+          }}
+        >
+          <span>Availability Calendar</span>
+          <span aria-hidden="true">
+            {showCalendar ? '\u25B2' : '\u25BC'}
+          </span>
+        </button>
+
+        <div
+          id="admin-availability-calendar"
+          hidden={!showCalendar}
+          style={{paddingTop: '12px'}}
+        >
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -610,7 +645,7 @@ const handleDeleteReservation = async (booking) => {
 
                   <p>
                     {formatDate(booking.checkIn)}
-                    {' â€“ '}
+                    {' – '}
                     {formatDate(booking.checkOut)}
                   </p>
 
@@ -622,6 +657,7 @@ const handleDeleteReservation = async (booking) => {
             )}
           </div>
         )}
+      </div>
       </section>
 
       <section style={styles.card}>
@@ -763,7 +799,7 @@ const handleDeleteReservation = async (booking) => {
               }}
             >
               <span>
-                {formatDate(night?.date)} â€”{' '}
+                {formatDate(night?.date)} —{' '}
                 {typeof night?.season === 'string'
                   ? night.season
                   : 'Unknown rate'}
@@ -992,7 +1028,7 @@ const handleDeleteReservation = async (booking) => {
 
               <p>
                 {formatDate(booking.checkIn)}
-                {' â€“ '}
+                {' – '}
                 {formatDate(booking.checkOut)}
               </p>
 
@@ -1085,16 +1121,50 @@ const handleDeleteReservation = async (booking) => {
       }}>
         Pending requests appear in amber and do not block dates. Confirmed reservations appear in red and block occupied nights. Red takes priority when both overlap.
       </p>
-      <PricingManagement />
+      <section style={styles.card}>
+        <button
+          type="button"
+          aria-expanded={showPricing}
+          aria-controls="admin-pricing-management"
+          onClick={() => setShowPricing(current => !current)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+            padding: '12px 4px',
+            border: 'none',
+            background: 'transparent',
+            color: '#082f6d',
+            fontSize: '18px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            textAlign: 'left'
+          }}
+        >
+          <span>Pricing Management</span>
+          <span aria-hidden="true">
+            {showPricing ? '\u25B2' : '\u25BC'}
+          </span>
+        </button>
+
+        <div
+          id="admin-pricing-management"
+          hidden={!showPricing}
+          style={{paddingTop: '12px'}}
+        >
+          <PricingManagement />
+        </div>
+      </section>
 
       <section style={{...styles.card, textAlign:'center', borderColor:'#c6cdb4', color:'#455438'}}>
         <img
           src={`${import.meta.env.BASE_URL}images/figtree/figtree-banner.png`}
-          alt="Figtree Craft Stall â€” handcrafted items, gifts and local treats"
+          alt="Figtree Craft Stall — handcrafted items, gifts and local treats"
           loading="lazy"
           style={{display:'block', width:'100%', maxWidth:'1000px', height:'auto', margin:'0 auto', borderRadius:'8px'}}
         />
-        <h3 style={{marginBottom:'8px'}}>Figtree Craft Stall â€” Coming Soon</h3>
+        <h3 style={{marginBottom:'8px'}}>Figtree Craft Stall — Coming Soon</h3>
         <p style={{marginBottom:0}}>A dedicated area for managing the Figtree Craft Stall will be available here in the future.</p>
       </section>
 

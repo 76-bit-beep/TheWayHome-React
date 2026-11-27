@@ -1,4 +1,4 @@
-﻿
+
 import {useEffect, useState} from 'react'
 import {addDoc, collection, getDocsFromServer, onSnapshot, serverTimestamp} from 'firebase/firestore'
 import {db} from '../firebase.js'
@@ -484,7 +484,7 @@ await addDoc(collection(db, 'bookingRequests'), {
           onClick={onClose}
           aria-label="Close booking calendar"
         >
-          ├ù
+          &#215;
         </button>
 
         <h2 id="booking-title">The Cottage</h2>
@@ -512,7 +512,7 @@ await addDoc(collection(db, 'bookingRequests'), {
               }
               aria-label="Previous month"
             >
-              ÔØ«
+              &#10094;
             </button>
 
             <strong>
@@ -527,7 +527,7 @@ await addDoc(collection(db, 'bookingRequests'), {
               onClick={() => changeMonth(1)}
               aria-label="Next month"
             >
-              ÔØ»
+              &#10095;
             </button>
           </div>
 
@@ -660,10 +660,42 @@ await addDoc(collection(db, 'bookingRequests'), {
   )}
 
   {!pricingLoading && !pricingError && (
-    <p>
-      Standard rate per person per night:
-      <strong> R{pricingSettings.nightlyRate}</strong>
-    </p>
+    <div style={{
+      paddingBottom: '12px',
+      marginBottom: '10px',
+      borderBottom: '1px solid #cce3f5'
+    }}>
+      <h4 style={{margin: '0 0 10px'}}>
+        Accommodation rates
+      </h4>
+
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        gap: '12px',
+        marginBottom: '8px'
+      }}>
+        <span>1-2 guests</span>
+        <strong>
+          R{(pricingSettings.nightlyRate * 2).toLocaleString('en-ZA')} / night
+        </strong>
+      </div>
+
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        gap: '12px'
+      }}>
+        <span>Each additional guest</span>
+        <strong>
+          + R{pricingSettings.nightlyRate.toLocaleString('en-ZA')} / night
+        </strong>
+      </div>
+
+      <small style={{display: 'block', marginTop: '8px'}}>
+        Seasonal rates may apply.
+      </small>
+    </div>
   )}
 
   <p>
@@ -694,6 +726,12 @@ await addDoc(collection(db, 'bookingRequests'), {
         >
           <span>
             {night.date} — {night.season}
+            <small style={{display: 'block', marginTop: '4px'}}>
+              R{night.nightlyRate.toLocaleString('en-ZA')}
+              {' × '}
+              {night.chargeableGuests ?? night.guests}
+              {' chargeable guests'}
+            </small>
           </span>
 
           <strong>
@@ -881,6 +919,18 @@ await addDoc(collection(db, 'bookingRequests'), {
 
             <button
               type="button"
+              className="booking-back"
+              onClick={() => {
+                resetPreview()
+                document.getElementById('booking-name')?.focus()
+              }}
+              disabled={submitting}
+            >
+              Back to Booking Details
+            </button>
+
+            <button
+              type="button"
               className="booking-submit"
               onClick={handleSubmitBooking}
               disabled={submitting || submitted || availabilityLoading || Boolean(availabilityError)}
@@ -955,3 +1005,4 @@ await addDoc(collection(db, 'bookingRequests'), {
 }
 
 export default BookingModal
+

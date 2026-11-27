@@ -94,6 +94,13 @@ export const createConfirmedReservation = async (
     notes: (reservation.notes || '').trim(),
     status: 'confirmed',
     source: 'manual',
+    ...(reservation.agreedTotal !== undefined ? {
+      agreedTotal: reservation.agreedTotal,
+      ...(reservation.originalQuotedTotal !== undefined ? {
+        originalQuotedTotal: reservation.originalQuotedTotal
+      } : {}),
+      currency: 'ZAR'
+    } : {}),
     createdAt: serverTimestamp()
   }
 

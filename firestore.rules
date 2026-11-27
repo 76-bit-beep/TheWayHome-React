@@ -51,7 +51,10 @@ service cloud.firestore {
           'status',
           'source',
           'notes',
-          'createdAt'
+          'createdAt',
+          'originalQuotedTotal',
+          'agreedTotal',
+          'currency'
         ])
         && data.keys().hasAll([
           'guestName',
@@ -78,6 +81,25 @@ service cloud.firestore {
         && data.status == 'confirmed'
         && data.source == 'manual'
         && data.createdAt == request.time
+        && (
+          !('originalQuotedTotal' in data)
+          || (
+            data.keys().hasAll(['agreedTotal', 'currency'])
+            && data.originalQuotedTotal is int
+            && data.originalQuotedTotal > 0
+            && data.originalQuotedTotal <= 15000000
+          )
+        )
+        && (
+          !data.keys().hasAny(['agreedTotal', 'currency'])
+          || (
+            data.keys().hasAll(['agreedTotal', 'currency'])
+            && data.agreedTotal is int
+            && data.agreedTotal > 0
+            && data.agreedTotal <= 15000000
+            && data.currency == 'ZAR'
+          )
+        )
         && (!('email' in data)
           || (data.email is string && data.email.size() <= 254))
         && (!('phone' in data)
@@ -499,3 +521,4 @@ match /seasonalPricing/{seasonId} {
     }
   }
 }
+

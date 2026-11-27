@@ -184,7 +184,8 @@ export function calculateBookingPrice(
       matchingSeasons[0] || settings
 
     const nightlyRate = activePricing.nightlyRate
-    const nightlyTotal = nightlyRate * guestCount
+    const chargeableGuests = Math.max(2, guestCount)
+    const nightlyTotal = nightlyRate * chargeableGuests
 
     minimumStay = Math.max(
       minimumStay,
@@ -197,6 +198,7 @@ export function calculateBookingPrice(
       date,
       nightlyRate,
       guests: guestCount,
+      chargeableGuests: chargeableGuests,
       total: nightlyTotal,
       season: activePricing.name || 'Standard rate'
     })
