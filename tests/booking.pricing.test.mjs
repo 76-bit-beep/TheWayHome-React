@@ -159,13 +159,52 @@ test('Booking pricing and negotiated discounts', async (t) => {
       await deleteConfirmedReservation(bookingId, adminDb)
     })
 
-    await t.test('Administrator cannot independently delete pending request', async () => {
+    await t.test('Administrator can permanently decline pending request', async () => {
+      const request = await submitRequest()
+      const {deleteDoc} = await import('firebase/firestore')
+
+      const requestRef = doc(adminDb, 'bookingRequests', request.id)
+
+      await assertSucceeds(deleteDoc(requestRef))
+
+      assert.equal((await getDoc(requestRef)).exists(), false)
+
+      assert.equal(
+        (await getDoc(doc(adminDb, 'publicAvailability', '2027-04-10'))).exists(),
+        false
+      )
+    })
+
+    await t.test('Customer cannot delete pending request', async () => {
       const request = await submitRequest()
       const {deleteDoc} = await import('firebase/firestore')
 
       await assert.rejects(
-        deleteDoc(doc(adminDb, 'bookingRequests', request.id)),
+        deleteDoc(doc(guestDb, 'bookingRequests', request.id)),
         {code: 'permission-denied'}
+      )
+
+      assert.equal(
+        (await getDoc(doc(adminDb, 'bookingRequests', request.id))).exists(),
+        true
+      )
+    })
+
+    await t.test('Unauthorised authenticated user cannot delete pending request', async () => {
+      const request = await submitRequest()
+      const {deleteDoc} = await import('firebase/firestore')
+
+      const otherDb =
+        env.authenticatedContext('unauthorised-user').firestore()
+
+      await assert.rejects(
+        deleteDoc(doc(otherDb, 'bookingRequests', request.id)),
+        {code: 'permission-denied'}
+      )
+
+      assert.equal(
+        (await getDoc(doc(adminDb, 'bookingRequests', request.id))).exists(),
+        true
       )
     })
 

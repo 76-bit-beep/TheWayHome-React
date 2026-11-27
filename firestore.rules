@@ -441,7 +441,13 @@ match /bookingRequests/{requestId} {
 
   // Customers cannot delete booking requests.
   allow delete: if isAdmin()
-        && resource.data.status == 'accepted'
+    && (
+      resource.data.status == 'pending'
+
+      ||
+
+      (
+        resource.data.status == 'accepted'
         && resource.data.bookingId is string
         && exists(
           /databases/$(database)/documents/bookings/$(resource.data.bookingId)
@@ -454,7 +460,9 @@ match /bookingRequests/{requestId} {
         ).data.requestId == requestId
         && !existsAfter(
           /databases/$(database)/documents/bookings/$(resource.data.bookingId)
-        );
+        )
+      )
+    );
 }
 
 // =====================================================

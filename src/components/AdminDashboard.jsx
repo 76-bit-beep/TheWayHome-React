@@ -1,6 +1,6 @@
 import './AdminDashboard.css'
 import {useEffect, useMemo, useState} from 'react'
-import {collection, doc, onSnapshot, updateDoc} from 'firebase/firestore'
+import {collection, doc, onSnapshot, deleteDoc} from 'firebase/firestore'
 import {
   acceptBookingRequest,
   verifyBookingPrice,
@@ -491,13 +491,11 @@ const handleDeleteReservation = async (booking) => {
       } else {
         const prompt =
           `Decline the booking request for ${booking.guestName || 'Guest'}?\n\n` +
-          'The requested dates will remain available.'
+          'This request and its customer details will be permanently deleted. The requested dates will remain available.'
 
         if (!window.confirm(prompt)) return
 
-        await updateDoc(doc(db, 'bookingRequests', booking.id), {
-          status: 'declined'
-        })
+        await deleteDoc(doc(db, 'bookingRequests', booking.id))
       }
     } catch (err) {
       console.error(`Unable to ${action} booking request:`, err)
