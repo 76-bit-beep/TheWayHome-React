@@ -1,10 +1,6 @@
 
 import {initializeApp} from 'firebase/app'
 import {
-  getAuth,
-  connectAuthEmulator
-} from 'firebase/auth'
-import {
   getFirestore,
   connectFirestoreEmulator
 } from 'firebase/firestore'
@@ -27,7 +23,7 @@ if (typeof window === 'undefined' && !isNodeTest) {
   throw new Error('Firebase initialization outside browser requires test mode')
 }
 
-const app = initializeApp(
+export const app = initializeApp(
   isNodeTest
     ? {
         projectId: 'demo-thewayhome',
@@ -37,7 +33,6 @@ const app = initializeApp(
     : firebaseConfig
 )
 
-export const auth = getAuth(app)
 export const db = getFirestore(app)
 
 // Connect to local Firebase emulators during Vite development.
@@ -45,10 +40,6 @@ export const db = getFirestore(app)
 if (isNodeTest) {
   connectFirestoreEmulator(db, '127.0.0.1', 8081)
 } else if (import.meta.env?.DEV) {
-  connectAuthEmulator(auth, 'http://127.0.0.1:9099', {
-    disableWarnings:true
-  })
-
   connectFirestoreEmulator(db, '127.0.0.1', 8080)
 
   console.info('Firebase LOCAL EMULATORS connected')

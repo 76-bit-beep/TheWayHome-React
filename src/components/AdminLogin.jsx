@@ -1,12 +1,12 @@
 
-import {useEffect, useState} from 'react'
+import {useEffect, useState, lazy, Suspense} from 'react'
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut
 } from 'firebase/auth'
-import {auth} from '../firebase'
-import AdminDashboard from './AdminDashboard'
+import {auth} from '../firebaseAuth.js'
+const AdminDashboard = lazy(() => import('./AdminDashboard.jsx'))
 
 const ADMIN_UID = 'qCMUIllRSgRmTucv7Tlqz5PJ3gl2'
 
@@ -89,7 +89,22 @@ function AdminLogin() {
 
   // Show dashboard when authenticated
   if (user) {
-    return <AdminDashboard />
+    return (
+      <Suspense fallback={
+        <main role="status" style={{
+          maxWidth: '420px',
+          margin: '80px auto',
+          padding: '30px',
+          textAlign: 'center',
+          fontFamily: 'Arial, sans-serif'
+        }}>
+          <h2>The Way Home</h2>
+          <p>Loading administrator dashboard...</p>
+        </main>
+      }>
+        <AdminDashboard />
+      </Suspense>
+    )
   }
 
   // Administrator login screen

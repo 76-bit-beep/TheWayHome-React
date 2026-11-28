@@ -185,7 +185,7 @@
 
 .booking-date.past {
   background: #eeeeee;
-  color: #aaaaaa;
+  color: #595959;
   border-color: #e5e5e5;
   cursor: not-allowed;
 }

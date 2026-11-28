@@ -7,7 +7,8 @@ import {
   deleteConfirmedReservation
 } from '../utils/availabilityFirestore'
 import {signOut} from 'firebase/auth'
-import {auth, db} from '../firebase'
+import {auth} from '../firebaseAuth.js'
+import {db} from '../firebase.js'
 import ManualReservation from './ManualReservation.jsx'
 import PricingManagement from './PricingManagement.jsx'
 import {DEFAULT_PRICING, calculateBookingPrice} from '../utils/pricing.js'
@@ -231,6 +232,29 @@ function AdminDashboard() {
   const [requestsLoading, setRequestsLoading] = useState(true)
   const [requestsError, setRequestsError] = useState('')
   const [monthOffset, setMonthOffset] = useState(0)
+
+  const getTodayKey = () => new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Johannesburg',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date())
+
+  const [todayKey, setTodayKey] = useState(getTodayKey)
+
+  useEffect(() => {
+    const updateToday = () => setTodayKey(getTodayKey())
+
+    const timer = window.setInterval(updateToday, 30000)
+    window.addEventListener('focus', updateToday)
+    document.addEventListener('visibilitychange', updateToday)
+
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', updateToday)
+      document.removeEventListener('visibilitychange', updateToday)
+    }
+  }, [])
   const [showCalendar, setShowCalendar] = useState(false)
   const [showPricing, setShowPricing] = useState(false)
   const [selectedDate, setSelectedDate] = useState(null)
@@ -290,14 +314,15 @@ function AdminDashboard() {
   }, [])
 
   const currentMonth = useMemo(() => {
-    const today = new Date()
+    const [currentYear, currentMonthNumber] =
+      todayKey.split('-').map(Number)
 
     return new Date(
-      today.getFullYear(),
-      today.getMonth() + monthOffset,
+      currentYear,
+      currentMonthNumber - 1 + monthOffset,
       1
     )
-  }, [monthOffset])
+  }, [monthOffset, todayKey])
 
   const year = currentMonth.getFullYear()
   const month = currentMonth.getMonth()
@@ -663,7 +688,18 @@ const handleDeleteReservation = async (booking) => {
 
             const pending = reservations.some(booking => booking.status === 'pending')
             const unknown = loading || requestsLoading || Boolean(error || requestsError)
-            const background = confirmed ? '#fecaca' : pending ? '#fde68a' : unknown ? '#e5e7eb' : '#f2f8fc'
+            const isPast = date < todayKey
+            const isToday = date === todayKey
+
+            const background = isPast
+              ? '#eeeeee'
+              : confirmed
+                ? '#fecaca'
+                : pending
+                  ? '#fde68a'
+                  : unknown
+                    ? '#e2e8f0'
+                    : '#dcfce7'
             const dayStatus = confirmed && pending ? 'confirmed reservation and pending request' : confirmed ? 'confirmed reservation' : pending ? 'pending request' : unknown ? 'availability unknown' : 'no reservation'
 
             return (
@@ -672,15 +708,19 @@ const handleDeleteReservation = async (booking) => {
                 type="button"
                 onClick={() => setSelectedDate(date)}
                 aria-pressed={selectedDate === date}
+                aria-current={isToday ? 'date' : undefined}
                 aria-label={`${formatDate(date)}, ${
                   dayStatus
                 }`}
                 style={{
                   ...styles.day,
                   background,
+                  color: isPast ? '#595959' : '#082f6d',
                   border: selectedDate === date
                     ? '2px solid #082f6d'
-                    : styles.day.border,
+                    : isToday
+                      ? '2px solid #2563eb'
+                      : styles.day.border,
                   fontWeight: confirmed || pending
                     ? 'bold'
                     : 'normal'
@@ -701,10 +741,12 @@ const handleDeleteReservation = async (booking) => {
           fontSize: '14px'
         }}>
           {[
+            ['#eeeeee', 'Past dates'],
+            ['#dcfce7', 'Available'],
             ['#fecaca', 'Confirmed'],
             ['#fde68a', 'Pending'],
-            ['#f2f8fc', 'No reservation'],
-            ['#e5e7eb', 'Unknown']
+            ['#e2e8f0', 'Unknown'],
+            ['#2563eb', 'Today (outline)']
           ].map(([color, label]) => (
             <span key={label} style={{display:'inline-flex', alignItems:'center', gap:'6px'}}>
               <span aria-hidden="true" style={{width:'14px', height:'14px', background:color, border:'1px solid #b7c8d5', borderRadius:'3px'}} />

@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from './firebase.js'
-import BookingModal from './components/BookingModal'
 import './App.css'
+
+const BookingModal = lazy(() => import('./components/BookingModal.jsx'))
 
 // GitHub Pages compatible image paths
 const base = import.meta.env.BASE_URL
@@ -267,6 +268,8 @@ function App() {
           <img width="256" height="256" loading="eager"
   className="brand-leaf"
   src={`${base}images/figtree/figtreelogo.webp`}
+  srcSet={`${base}images/figtree/figtreelogo-64w.webp 64w, ${base}images/figtree/figtreelogo-128w.webp 128w, ${base}images/figtree/figtreelogo.webp 256w`}
+  sizes="64px"
   alt=""
 />
 
@@ -392,6 +395,8 @@ function App() {
             <div className="gallery">
               <img width="1200" height="1600" loading="lazy" decoding="async"
                 src={photos[photoIndex]}
+                srcSet={`${photos[photoIndex].replace(/\.jpg$/, '-480w.webp')} 480w, ${photos[photoIndex].replace(/\.jpg$/, '-800w.webp')} 800w, ${photos[photoIndex]} 1200w`}
+                sizes="(max-width: 750px) 95vw, (max-width: 999px) 50vw, 400px"
                 alt={photoDescriptions[photoIndex]}
               />
 
@@ -612,6 +617,8 @@ function App() {
   >
     <img width="1800" height="600" decoding="async"
     src={`${base}images/figtree/figtree-banner.webp`}
+    srcSet={`${base}images/figtree/figtree-banner-600w.webp 600w, ${base}images/figtree/figtree-banner-1200w.webp 1200w, ${base}images/figtree/figtree-banner.webp 1800w`}
+    sizes="(max-width: 750px) 100vw, 1280px"
     alt="Figtree Craft Stall - Handcrafted items, gifts and local treats"
     loading="lazy"
     className="figtree-banner-image"
@@ -640,10 +647,28 @@ function App() {
 
       {/* BOOKING POP-UP */}
 
-      <BookingModal
-        isOpen={bookingOpen}
-        onClose={() => setBookingOpen(false)}
-      />
+      <Suspense fallback={
+        <div role="status" style={{
+          position: 'fixed',
+          bottom: '24px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#ffffff',
+          padding: '12px 20px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 12px #0003',
+          zIndex: 9999
+        }}>
+          Loading booking form...
+        </div>
+      }>
+        {bookingOpen && (
+          <BookingModal
+            isOpen={bookingOpen}
+            onClose={() => setBookingOpen(false)}
+          />
+        )}
+      </Suspense>
 
     </div>
   )
