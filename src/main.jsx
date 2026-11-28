@@ -5,6 +5,7 @@ import './index.css'
 
 const isAdminPage = window.location.pathname
   .replace(/\/+$/, '')
+  .replace(/\/index\.html$/, '')
   .endsWith('/admin')
 
 const loadPage = async () => {
