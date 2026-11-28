@@ -539,7 +539,7 @@ await addDoc(collection(db, 'bookingRequests'), {
               const isBlocked = blockedNights.has(key)
               const canCheckout = Boolean(checkIn && !checkOut && date > checkIn &&
                 !getOccupiedNights(checkIn, date).some((night) => blockedNights.has(night)))
-              const unavailable = isBlocked && !canCheckout
+              const unavailable = !isPast && isBlocked && !canCheckout
 
               const isStart = checkIn &&
                 dateKey(checkIn) === key

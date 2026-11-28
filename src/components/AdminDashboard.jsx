@@ -1258,8 +1258,8 @@ const handleDeleteReservation = async (booking) => {
       </section>
 
       <section style={{...styles.card, textAlign:'center', borderColor:'#c6cdb4', color:'#455438'}}>
-        <img
-          src={`${import.meta.env.BASE_URL}images/figtree/figtree-banner.png`}
+        <img width="1800" height="600" decoding="async"
+          src={`${import.meta.env.BASE_URL}images/figtree/figtree-banner.webp`}
           alt="Figtree Craft Stall — handcrafted items, gifts and local treats"
           loading="lazy"
           style={{display:'block', width:'100%', maxWidth:'1000px', height:'auto', margin:'0 auto', borderRadius:'8px'}}

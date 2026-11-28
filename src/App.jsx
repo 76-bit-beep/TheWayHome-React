@@ -264,9 +264,9 @@ function App() {
           aria-label="The Way Home homepage"
           onClick={closeMenu}
         >
-          <img
+          <img width="256" height="256" loading="eager"
   className="brand-leaf"
-  src={`${base}images/figtree/figtreelogo.png`}
+  src={`${base}images/figtree/figtreelogo.webp`}
   alt=""
 />
 
@@ -330,7 +330,7 @@ function App() {
           aria-label="Welcome to The Way Home"
         >
           <div className="hero-photo">
-            <img
+            <img width="315" height="180" loading="eager" fetchPriority="high"
               src={`${base}images/homepage/home_01.jpg`}
               alt="Entrance to The Way Home self-catering accommodation in Vredenburg"
             />
@@ -390,7 +390,7 @@ function App() {
             {/* COTTAGE PHOTO GALLERY */}
 
             <div className="gallery">
-              <img
+              <img width="1200" height="1600" loading="lazy" decoding="async"
                 src={photos[photoIndex]}
                 alt={photoDescriptions[photoIndex]}
               />
@@ -610,8 +610,8 @@ function App() {
     aria-label="Visit the Figtree Craft Stall website"
     style={{display: 'block', cursor: 'pointer'}}
   >
-    <img
-    src={`${base}images/figtree/figtree-banner.png`}
+    <img width="1800" height="600" decoding="async"
+    src={`${base}images/figtree/figtree-banner.webp`}
     alt="Figtree Craft Stall - Handcrafted items, gifts and local treats"
     loading="lazy"
     className="figtree-banner-image"
