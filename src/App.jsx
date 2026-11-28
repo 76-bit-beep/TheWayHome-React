@@ -16,6 +16,13 @@ const photos = [
 ]
 
 
+const photoDescriptions = [
+  'Double bedroom at The Cottage',
+  'Self-catering kitchen at The Cottage',
+  'Additional sleeping area with bunk beds and a single bed',
+  'Bathroom at The Cottage',
+]
+
 // Property details
 const address = '1 Ibis Street, Vredenburg, 7380, South Africa'
 
@@ -325,15 +332,15 @@ function App() {
           <div className="hero-photo">
             <img
               src={`${base}images/homepage/home_01.jpg`}
-              alt="The Way Home guest accommodation entrance"
+              alt="Entrance to The Way Home self-catering accommodation in Vredenburg"
             />
           </div>
 
           <div className="hero-copy" id="story">
             <h1>
-              Your home away from home
+              Self-Catering Accommodation
               <br />
-              on South Africa&apos;s West Coast
+              in Vredenburg
             </h1>
 
             <div className="ornament">
@@ -369,7 +376,7 @@ function App() {
           id="accommodation"
         >
           <div className="section-title">
-            <h2>Our Accommodation</h2>
+            <h2>Your Home Away From Home on the West Coast</h2>
 
             <p>
               A comfortable self-catering cottage
@@ -385,9 +392,7 @@ function App() {
             <div className="gallery">
               <img
                 src={photos[photoIndex]}
-                alt={`The Cottage photograph ${
-                  photoIndex + 1
-                } of ${photos.length}`}
+                alt={photoDescriptions[photoIndex]}
               />
 
               <button
@@ -509,7 +514,7 @@ function App() {
           id="contact"
         >
           <div className="contact-intro">
-            <h2>Get in Touch</h2>
+            <h2>Contact The Way Home</h2>
 
             <div className="ornament">
               ━━━━ ❧ ━━━━
